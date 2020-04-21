@@ -1,0 +1,144 @@
+@font-face
+{
+	font-family: 'Electrolize';
+	src: url('Electrolize-Regular.eot');
+	src: url('Electrolize-Regular.eot#iefix') format('embedded-opentype'), url('Electrolize-Regular.woff') format('woff');
+	font-weight: normal;
+	font-style: normal;
+}
+
+@font-face
+{
+	font-family: 'Consolas';
+	src: url('consola.eot');
+	src: url('consola.eot#iefix') format('embedded-opentype'), url('consola.woff') format('woff');
+	font-weight: normal;
+	font-style: normal;
+}
+
+@font-face
+{
+	font-family: 'Candara';
+	src: url('Candara.eot');
+	src: url('Candara.eot#iefix') format('embedded-opentype'), url('Candara.woff') format('woff');
+	font-weight: normal;
+	font-style: normal;
+}
+
+html, body
+{
+	height: 100%;
+	width: 100%;
+	padding: 0px;
+	margin: 0px;
+}
+
+body
+{
+	background-color: #000000;
+}
+
+*
+{
+	font-family: 'Electrolize';
+}
+
+code *
+{
+	font-family: 'Consolas';
+}
+
+a, a:active, a:focus, a:link, a:visited, a img
+{
+	text-decoration: none;
+	border: none;
+	outline: none;
+}
+
+.bgdefault
+{
+	background-position: center center;
+	background-repeat: no-repeat;
+}
+
+.bgleft
+{
+	background-position: left center;
+	background-repeat: no-repeat;
+}
+
+.bgright
+{
+	background-position: right center;
+	background-repeat: no-repeat;
+}
+
+.fix
+{
+	position: fixed;
+}
+
+.rel
+{
+	position: relative;
+}
+
+.abs
+{
+	position: absolute;
+}
+
+.l0
+{
+	left: 0px;
+}
+
+.l100
+{
+	left: 100%;
+}
+
+.t0
+{
+	top: 0px;
+}
+
+.r0
+{
+	right: 0px;
+}
+
+.b0
+{
+	bottom: 0px;
+}
+
+.w100
+{
+	width: 100%;
+}
+
+.h100
+{
+	height: 100%;
+}
+
+.cls
+{
+	clear: both;
+}
+
+.fleft
+{
+	float: left;
+}
+
+.hidden
+{
+	overflow: hidden;
+}
+
+.block
+{
+	display: block;
+}

@@ -1,18 +1,17 @@
 <html>
 	<head>
 		<meta content="text/html; charset=utf-8" http-equiv="content-type">
-		<base href="/webgl-earth/">
 		<input type='text' id='myInput' autocomplete='off'>
 		<title>NOXCAIN</title>
 		<link rel="stylesheet" type="text/css" href="/layout/core.css">
 		<style type="text/css">
 			* { color: #FFFFFF; }
 		</style>
-		<script src="/js/nx.js" type="text/javascript"></script>
-		<script src="/js/nxjs.js" type="text/javascript"></script>
-		<script src="/js/nxev.js" type="text/javascript"></script>
-		<script src="/js/geometry.js" type="text/javascript"></script>
-		<script src="/js/graphnode.js" type="text/javascript"></script>
+		<script src="js/nx.js" type="text/javascript"></script>
+		<script src="js/nxjs.js" type="text/javascript"></script>
+		<script src="js/nxev.js" type="text/javascript"></script>
+		<script src="js/geometry.js" type="text/javascript"></script>
+		<script src="js/graphnode.js" type="text/javascript"></script>
 		<script type="text/javascript">
 		<!--
 			var gl;
@@ -1400,49 +1399,49 @@
 				list[0] = new function()
 				{
 					this.index = 1;
-					this.src ="/layout/world.jpg";
+					this.src ="img/world.jpg";
 				};
 				
 				list[1] = new function()
 				{
 					this.index = 2;
-					this.src ="/layout/moon.jpg";
+					this.src ="img/moon.jpg";
 				};
 				
 				list[2] = new function()
 				{
 					this.index = 3;
-					this.src ="/layout/night.jpg";
+					this.src ="img/night.jpg";
 				};
 				
 				list[3] = new function()
 				{
 					this.index = 4;
-					this.src ="/layout/bump.jpg";
+					this.src ="img/bump.jpg";
 				};
 				
 				list[4] = new function()
 				{
 					this.index = 5;
-					this.src ="/layout/spec.jpg";
+					this.src ="img/spec.jpg";
 				};
 				
 				list[5] = new function()
 				{
 					this.index = 10;
-					this.src ="/layout/white.jpg";
+					this.src ="img/white.jpg";
 				};
 				
 				list[6] = new function()
 				{
 					this.index = 6;
-					this.src ="/layout/cloud.jpg";
+					this.src ="img/cloud.jpg";
 				};
 				
 				list[7] = new function()
 				{
 					this.index = 7;
-					this.src ="/layout/stars.jpg";
+					this.src ="img/stars.jpg";
 				};
 				
 				initGl( canvas );
@@ -1487,14 +1486,14 @@
 				
 				for( var i = 0; i < len; i++ )
 				{
-					shaderlist[i].v = NXJS.OpenGET( "/shader/"+ shaderlist[i].name +"_vShader.nxs", false );
+					shaderlist[i].v = NXJS.OpenGET( "shader/"+ shaderlist[i].name +"_vShader.nxs", false );
 					if ( !shaderlist[i].v )
 					{
 						appendStat( 'Failed to load Color-Vertex-Shader. Please reload web page.' );
 						return;
 					}
 					
-					shaderlist[i].f = NXJS.OpenGET( "/shader/"+ shaderlist[i].name +"_fShader.nxs", false );
+					shaderlist[i].f = NXJS.OpenGET( "shader/"+ shaderlist[i].name +"_fShader.nxs", false );
 
 					if ( !shaderlist[i].f )
 					{
