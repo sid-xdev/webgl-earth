@@ -1,0 +1,37 @@
+precision lowp float;
+
+uniform sampler2D uBlurLayerSampler;
+
+uniform vec2 uResolution;
+
+varying vec2 vVertexUV;
+
+void main() 
+{ 
+	float uWeight[3];
+	uWeight[0] = 0.2270270270;
+	uWeight[1] = 0.3162162162;
+	uWeight[2] = 0.0702702703;
+	
+	float uOffset[3];
+	uOffset[0] = 0.0;
+	uOffset[1] = 1.3846153846;
+	uOffset[2] = 3.2307692308;
+	
+	vec4 glowColor = vec4( 0.0 );
+	
+	glowColor += uWeight[0]*texture2D( uBlurLayerSampler, vVertexUV );
+	for ( int i = 1; i < 3; i++ )
+	{
+		glowColor += uWeight[i]*texture2D( uBlurLayerSampler, ( vVertexUV + vec2( 0.0, uOffset[i] / uResolution.y ) ) );
+		glowColor += uWeight[i]*texture2D( uBlurLayerSampler, ( vVertexUV - vec2( 0.0, uOffset[i] / uResolution.y ) ) );
+	}
+	
+	glowColor += uWeight[0]*texture2D( uBlurLayerSampler, vVertexUV );
+	for ( int i = 1; i < 3; i++ )
+	{
+		glowColor += uWeight[i]*texture2D( uBlurLayerSampler, vVertexUV + ( vec2( uOffset[i], 0.0 )/uResolution ) );
+		glowColor += uWeight[i]*texture2D( uBlurLayerSampler, vVertexUV - ( vec2( uOffset[i], 0.0 )/uResolution ) );
+	}
+	gl_FragColor = glowColor/2.0;
+}

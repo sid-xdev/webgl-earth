@@ -1,0 +1,10 @@
+attribute vec3 aVertexPos; 
+attribute vec2 aVertexUV;
+
+varying vec2 vVertexUV;  
+
+void main() 
+{ 
+	vVertexUV = aVertexUV;
+	gl_Position = vec4( aVertexPos, 1.0 ); 
+}
