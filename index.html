@@ -1452,24 +1452,6 @@
 				initShader( slist );
 				initTex( gl, list );
 				
-				initScene();
-				
-				initBuffer();
-				initFramebuffer( gl );
-				initUniform();
-				
-				sg.timer.multi = 10000;
-				
-				gl.timer = new Date().getTime();
-				gl.fpsframe = $( 'fps' );
-				gl.fps = 0;
-				
-				gl.enable( gl.DEPTH_TEST );
-				gl.depthFunc( gl.LESS );
-				gl.blendFunc( gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA );
-				
-				tick();
-				
 				$( 'legend' ).style.display = '';
 				
 				windowResize( null, null, null );
