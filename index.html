@@ -12,6 +12,7 @@
 		<script src="js/nxev.js" type="text/javascript"></script>
 		<script src="js/geometry.js" type="text/javascript"></script>
 		<script src="js/graphnode.js" type="text/javascript"></script>
+		<script src="debug/webgl-debug.js"></script>
 		<script type="text/javascript">
 		<!--
 			var gl;
@@ -586,7 +587,7 @@
 			{
 				try
 				{
-					gl = canvas.getContext( 'webgl' );			// abrufen des Kontext für WebGL aus dem canvas
+					gl = WebGLDebugUtils.makeDebugContext( canvas.getContext( 'webgl' ) );			// abrufen des Kontext für WebGL aus dem canvas
 				}
 				catch(e) {}
 				
