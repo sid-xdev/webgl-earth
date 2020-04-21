@@ -481,7 +481,7 @@
 			function initTex( gl, list )
 			{
 				gl.texList[0] = gl.createTexture();
-				
+				var nTextures = 0;
 				for( var i = 0; i < list.length; i++ )
 				{
 					var img = new Image();
@@ -506,6 +506,11 @@
 						gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST );
 						gl.generateMipmap( gl.TEXTURE_2D );
 						gl.bindTexture( gl.TEXTURE_2D, null );
+						++nTextures;
+						if( nTextures == list.length )
+						{
+							render();
+						}
 					};
 					
 					img.src = list[i].src;
@@ -1371,10 +1376,6 @@
 				}
 			}
 			
-			function render()
-			{
-			}
-			
 			function webGLStart( slist )
 			{
 				var canvas = $( 'nx-canvas' ); 	// abrufen des Ausgabe-canvas in dem das Endresultat gerendert wird
@@ -1396,7 +1397,7 @@
 				canvas.onmouseup   = MouseUp;
 				
 				// erstellen der Textureliste (TODO aus Datei auslesen);
-				var list = new Array(4);
+				var list = new Array(8);
 				
 				list[0] = new function()
 				{
@@ -1473,6 +1474,27 @@
 				
 				windowResize( null, null, null );
 				NXEV.Add( window, 'onresize', windowResize, null );
+			}
+			
+			function render()
+			{
+				initScene();
+				
+				initBuffer();
+				initFramebuffer( gl );
+				initUniform();
+				
+				sg.timer.multi = 10000;
+				
+				gl.timer = new Date().getTime();
+				gl.fpsframe = $( 'fps' );
+				gl.fps = 0;
+				
+				gl.enable( gl.DEPTH_TEST );
+				gl.depthFunc( gl.LESS );
+				gl.blendFunc( gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA );
+				
+				tick();
 			}
 			
 			function loadWebGL( eventobject, event, obj )
