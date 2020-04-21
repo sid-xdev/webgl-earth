@@ -3,7 +3,7 @@
 		<meta content="text/html; charset=utf-8" http-equiv="content-type">
 		<input type='text' id='myInput' autocomplete='off'>
 		<title>NOXCAIN</title>
-		<link rel="stylesheet" type="text/css" href="/layout/core.css">
+		<link rel="stylesheet" type="text/css" href="layout/core.css">
 		<style type="text/css">
 			* { color: #FFFFFF; }
 		</style>
@@ -1483,17 +1483,18 @@
 				shaderlist[3] = { name: "Earth" };
 				
 				var len = shaderlist.length;
+				var fileEnding = ".txt";
 				
 				for( var i = 0; i < len; i++ )
 				{
-					shaderlist[i].v = NXJS.OpenGET( "shader/"+ shaderlist[i].name +"_vShader.nxs", false );
+					shaderlist[i].v = NXJS.OpenGET( "shader/"+ shaderlist[i].name +"_vShader" + fileEnding, false );
 					if ( !shaderlist[i].v )
 					{
 						appendStat( 'Failed to load Color-Vertex-Shader. Please reload web page.' );
 						return;
 					}
 					
-					shaderlist[i].f = NXJS.OpenGET( "shader/"+ shaderlist[i].name +"_fShader.nxs", false );
+					shaderlist[i].f = NXJS.OpenGET( "shader/"+ shaderlist[i].name +"_fShader" + fileEnding, false );
 
 					if ( !shaderlist[i].f )
 					{
