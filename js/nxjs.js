@@ -86,7 +86,7 @@ var NXJS = new function ()
 				{
 					if (xmlHttp.status == 200)
 					{
-						if (nxCore.IsFunction(pSuccessCallback))
+						if (NX.IsFunction(pSuccessCallback))
 						{
 							if (pGetXML)
 							{
@@ -100,7 +100,7 @@ var NXJS = new function ()
 					}
 					else
 					{
-						if (nxCore.IsFunction(pErrorCallback))
+						if (NX.IsFunction(pErrorCallback))
 						{
 							pErrorCallback(xmlHttp.statusText, pCallbackObject);
 						}
@@ -112,7 +112,7 @@ var NXJS = new function ()
 		}
 		else
 		{
-			if (nxCore.IsFunction(pErrorCallback))
+			if (NX.IsFunction(pErrorCallback))
 			{
 				pErrorCallback('Cannot create XMLHttpRequest', pCallbackObject);
 			}
@@ -183,7 +183,7 @@ var NXJS = new function ()
 				{
 					if (xmlHttp.status == 200)
 					{
-						if (nxCore.IsFunction(pSuccessCallback))
+						if (NX.IsFunction(pSuccessCallback))
 						{
 							if (pGetXML)
 							{
@@ -197,7 +197,7 @@ var NXJS = new function ()
 					}
 					else
 					{
-						if (nxCore.IsFunction(pErrorCallback))
+						if (NX.IsFunction(pErrorCallback))
 						{
 							pErrorCallback(xmlHttp.statusText, pCallbackObject);
 						}
@@ -210,7 +210,7 @@ var NXJS = new function ()
 		}
 		else
 		{
-			if (nxCore.IsFunction(pErrorCallback))
+			if (NX.IsFunction(pErrorCallback))
 			{
 				pErrorCallback('Cannot create XMLHttpRequest', pCallbackObject);
 			}
@@ -230,7 +230,7 @@ var NXJS = new function ()
 				{
 					if (xmlHttp.status == 200)
 					{
-						if (nxCore.IsFunction(pSuccessCallback))
+						if (NX.IsFunction(pSuccessCallback))
 						{
 							if (pGetXML)
 							{
@@ -244,7 +244,7 @@ var NXJS = new function ()
 					}
 					else
 					{
-						if (nxCore.IsFunction(pErrorCallback))
+						if (NX.IsFunction(pErrorCallback))
 						{
 							pErrorCallback(xmlHttp.statusText, pCallbackObject);
 						}
@@ -256,7 +256,7 @@ var NXJS = new function ()
 		}
 		else
 		{
-			if (nxCore.IsFunction(pErrorCallback))
+			if (NX.IsFunction(pErrorCallback))
 			{
 				pErrorCallback('Cannot create XMLHttpRequest', pCallbackObject);
 			}

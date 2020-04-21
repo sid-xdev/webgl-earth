@@ -2,7 +2,7 @@
 	<head>
 		<meta content="text/html; charset=utf-8" http-equiv="content-type">
 		<input type='text' id='myInput' autocomplete='off'>
-		<title>NOXCAIN</title>
+		<title>WebGL-Earth</title>
 		<link rel="stylesheet" type="text/css" href="layout/core.css">
 		<style type="text/css">
 			* { color: #FFFFFF; }
@@ -17,19 +17,6 @@
 			var gl;
 			var	sg;
 			var input;
-			
-			window.requestAnimFrame = ( function()
-			{
-				return window.requestAnimationFrame ||
-					window.webkitRequestAnimationFrame ||
-					window.mozRequestAnimationFrame ||
-					window.oRequestAnimationFrame ||
-					window.msRequestAnimationFrame ||
-					function( callback, element ) 
-					{
-						window.setTimeout( callback, 1000/60 );
-					};
-			} )();
 			
 			NX_POS_I = 0;
 			NX_UV_I = 1;
@@ -227,7 +214,7 @@
 				sg = new Scenegraph();
 				sg.oList = new Polylist();
 				
-				var planet = icosa( 1, 4, "planet" );
+				var planet = icosa( 1, 1, "planet" );
 				var pos = sg.oList.addObj( planet );
 				var pos1 = sg.oList.addObj( arrow() );
 				
@@ -501,14 +488,16 @@
 					
 					img.index = list[i].index;
 					
+					appendStatus( "Loading texture " + list[i].src + "...", "img" + img.index );
+					
 					img.onerror = function ( event )
 					{
-						appendStat( "Failed to load "+ this.src +". Please reload web page." );
+						updateStatus( "Failed to load texture "+ this.src +". Please reload web page.", "img" + this.index );
 					};
 					
 					img.onload = function ( event )
 					{
-						appendStat( "Complete loading "+ this.src +"." );
+						updateStatus( "Complete loading texture "+ this.src +".", "img" + this.index );
 						gl.texList[this.index] = gl.createTexture();
 						gl.bindTexture( gl.TEXTURE_2D, gl.texList[this.index] );
 						gl.pixelStorei( gl.UNPACK_FLIP_Y_WEBGL, true );
@@ -592,7 +581,7 @@
 			{
 				try
 				{
-					gl = canvas.getContext( 'experimental-webgl' );			// abrufen des Kontext für WebGL aus dem canvas
+					gl = canvas.getContext( 'webgl' );			// abrufen des Kontext für WebGL aus dem canvas
 				}
 				catch(e) {}
 				
@@ -602,11 +591,6 @@
 					alert( 'webGL not activiated or supported' );
 				}
 				
-				var res = $( 'res' );
-				gl.bufferWidth = res.offsetWidth;
-				gl.bufferHeight = res.offsetHeight;
-				gl.resWidth = gl.bufferWidth;
-				gl.resHeight = gl.bufferHeight;
 				gl.texList = new Array();
 			}
 			
@@ -921,7 +905,7 @@
 				var objMat = obj.ownMat;
 				
 				var p0 = camMat.multiply( new Vec3( 0, 0, 0 ) );
-				var p1 = camMat.multiply( new Vec3( input.old_clientX/gl.resWidth*width - width/2, -1*( input.old_clientY/gl.resHeight*height - height/2 ), -1*sg.cameras[sg.MAIN_CAMERA].near ) ).sub( p0 );
+				var p1 = camMat.multiply( new Vec3( input.old_clientX/gl.bufferWidth*width - width/2, -1*( input.old_clientY/gl.bufferWidth*height - height/2 ), -1*sg.cameras[sg.MAIN_CAMERA].near ) ).sub( p0 );
 				
 				if( true )
 				{
@@ -1079,8 +1063,8 @@
 			
 			function tick()
 			{
-				requestAnimFrame( tick );
 				var c = new Date();
+				sg.timer.setFrame();
 				drawScene();
 				var end = c.getTime();
 				if( end - gl.timer > 1000 )
@@ -1092,6 +1076,7 @@
 					gl.fps=0;
 				}
 				gl.fps++;
+				requestAnimationFrame( tick );
 			} 
 			
 			function drawPerObject( node, index, glow, program )
@@ -1146,24 +1131,32 @@
 			
 			function drawScene()
 			{
-				if( input.resize )
-				{
-					var res = $( 'res' );
-					var canvas = $( 'nx-canvas' );
+				var canvas = $( 'nx-canvas' );
 				
-					canvas.width = res.offsetWidth;
-					canvas.height = res.offsetHeight;
-					gl.resWidth = res.offsetWidth;
-					gl.resHeight = res.offsetHeight;
-					sg.cameras[sg.MAIN_CAMERA].setRatio( res.offsetWidth/res.offsetHeight );
-					input.resize = false;
+				// Lookup the size the browser is displaying the canvas.
+				var displayWidth  = canvas.clientWidth;
+				var displayHeight = canvas.clientHeight;
+
+				// Check if the canvas is not the same size.
+				if (canvas.width  != displayWidth || canvas.height != displayHeight) 
+				{
+					canvas.width  = displayWidth;
+					canvas.height = displayHeight;
 				}
 				
+				if( gl.bufferWidth != canvas.width || gl.bufferHeight != canvas.height )
+				{
+					gl.bufferWidth = canvas.width;
+					gl.bufferHeight = canvas.height;
+					initFramebuffer( gl );
+				}
+				
+				sg.cameras[sg.MAIN_CAMERA].setRatio( canvas.width/canvas.height );
 				sg.calcSceneTransformation();
 				sg.t.getSceneUVBuffer( sg.uvBuffer, 0 );
 				
 				// Multipass rendering
-				gl.viewport( 0, 0, gl.bufferWidth, gl.bufferHeight );
+				gl.viewport( 0, 0, canvas.width, canvas.height );
 				
 				gl.bindBuffer( gl.ARRAY_BUFFER, gl.vPosBuffer );
 				gl.vertexAttribPointer( NX_POS_I, 3, gl.FLOAT, false, 0, 0 );
@@ -1278,7 +1271,7 @@
 					
 				case 32:	//Space 
 					input.dis = 18;
-					input.lon = 0;
+					input.lon = 180;
 					input.lat = 0;
 					input.mX = 0;
 					input.mY = 0;
@@ -1356,29 +1349,31 @@
 				input.resize = true;
 			}
 			
-			function timetick()
-			{
-				var now = new Date().getTime();
-				sg.timer.delta = now - sg.timer.timeStamp;
-				sg.timer.gameTime += sg.timer.getDelta();
-				sg.timer.timeStamp = now;
-			}
-			
 			function appendStat( text )
 			{
 				$( 'fps' ).innerHTML += text + '<br>';
 			}
 			
+			function appendStatus( text, id )
+			{
+				$( 'fps' ).innerHTML += '<pre id="' + id + '">' + text + '<\pre>';
+			}
+			
+			function updateStatus( text, id )
+			{
+				document.getElementById(id).innerHTML = text;
+			}
+			
+			function render()
+			{
+			}
+			
 			function webGLStart( slist )
 			{
 				var canvas = $( 'nx-canvas' ); 	// abrufen des Ausgabe-canvas in dem das Endresultat gerendert wird
-				var res = $( 'res' );
-				canvas.width = res.offsetWidth;
-				canvas.height = res.offsetHeight;
-				
 				input = [];
 				input.ctrl = 1;
-				input.lon = 75;
+				input.lon = 180;
 				input.lat = 0;
 				input.dis = 18;
 				input.mY = 0;
@@ -1393,7 +1388,7 @@
 				canvas.onmousedown = MouseDown;
 				canvas.onmouseup   = MouseUp;
 				
-				// erstellen der Textureliste (später aus Datei auslesen);
+				// erstellen der Textureliste (TODO aus Datei auslesen);
 				var list = new Array(4);
 				
 				list[0] = new function()
@@ -1447,8 +1442,10 @@
 				initGl( canvas );
 			
 				initShader( slist );
+				initTex( gl, list );
+				
 				initScene();
-				initTex( gl, list )
+				
 				initBuffer();
 				initFramebuffer( gl );
 				initUniform();
@@ -1463,7 +1460,6 @@
 				gl.depthFunc( gl.LESS );
 				gl.blendFunc( gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA );
 				
-				setInterval( timetick, 20 )
 				tick();
 				
 				$( 'legend' ).style.display = '';
@@ -1471,10 +1467,9 @@
 				windowResize( null, null, null );
 				NXEV.Add( window, 'onresize', windowResize, null );
 			}
-		
+			
 			function loadWebGL( eventobject, event, obj )
 			{
-				appendStat('Loading Shaders...');
 				var shaderlist = [];
 				
 				shaderlist[0] = { name: "Color" };
@@ -1484,33 +1479,65 @@
 				
 				var len = shaderlist.length;
 				var fileEnding = ".txt";
+				var prefix = "shader/" 
+				var finishedShaderCount = 0;
 				
-				for( var i = 0; i < len; i++ )
+				function getShaderFile( index, type )
 				{
-					shaderlist[i].v = NXJS.OpenGET( "shader/"+ shaderlist[i].name +"_vShader" + fileEnding, false );
-					if ( !shaderlist[i].v )
+					return shaderlist[index].name + '_' + type + 'Shader' + fileEnding;
+				};
+				
+				function ErrorHandler( response, object )
+				{
+					updateStatus( 'Failed to load fragment shader "' + getShaderFile( object.index, object.type ) + '".', object.type + 'shader' + object.index );
+				}
+				
+				function SuccessHandler( response, object )
+				{
+					updateStatus( 'Complete loading fragment shader "' + getShaderFile( object.index, object.type ) + '".', object.type + 'shader' + object.index );
+					
+					if( object.type == 'f' )
 					{
-						appendStat( 'Failed to load Color-Vertex-Shader. Please reload web page.' );
-						return;
+						shaderlist[object.index].f = response;
+					}
+					else
+					{
+						shaderlist[object.index].v = response;
 					}
 					
-					shaderlist[i].f = NXJS.OpenGET( "shader/"+ shaderlist[i].name +"_fShader" + fileEnding, false );
-
-					if ( !shaderlist[i].f )
+					++finishedShaderCount
+					if( finishedShaderCount == 2*len )
 					{
-						appendStat( 'Failed to load Color-Fragment-Shader. Please reload web page.' );
-						return;
+						$('fps').innerHTML = '';
+						webGLStart( shaderlist );
 					}
 				}
 				
-				webGLStart( shaderlist );
+				for( var i = 0; i < len; i++ )
+				{
+					var vShader = 
+					{
+						'index': i,
+						'type' : 'v'
+					};
+					appendStatus( 'Loading vertex shader "' + getShaderFile( i, vShader.type ) + '" ...', vShader.type + 'shader' + i );
+					NXJS.OpenAsyncGET( prefix + getShaderFile( i, vShader.type ), false, SuccessHandler, ErrorHandler, vShader );
+					
+					
+					var fShader = 
+					{
+						'index': i,
+						'type' : 'f'
+					};
+					appendStatus( 'Loading fragment shader "' + getShaderFile( i, fShader.type ) + '" ...', fShader.type + 'shader' + i );
+					NXJS.OpenAsyncGET( prefix + getShaderFile( i, fShader.type ), false, SuccessHandler, ErrorHandler, fShader );
+				}
 			}
 			
 			NXEV.Add( window, 'onload', loadWebGL, null );
 		</script>
 	</head>
 	<body class="rel" style="background: #000000;">
-	<div id="res" class="abs t0 l0 w100 h100"></div>
 	<canvas class="abs t0 l0 w100 h100" id="nx-canvas" style="border: none; background: black"></canvas>
 	<div class="abs t0 l0" style="padding: 20px;"><div id="fps" class="rel"></div></div>
 	<div id="legend" class="abs b0 l0" style="padding: 15px; display: none;">

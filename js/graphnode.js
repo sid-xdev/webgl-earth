@@ -351,6 +351,14 @@
 		}
 		return k*this.delta;
 	};
+	
+	Timer.prototype.setFrame = function()
+	{
+		var now = new Date().getTime();
+		this.delta = now - this.timeStamp;
+		this.gameTime += this.getDelta();
+		this.timeStamp = now;
+	};
 
 	function Scenegraph()
 	{
