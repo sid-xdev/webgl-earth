@@ -1188,6 +1188,8 @@
 				gl.disable( gl.BLEND );
 				
 				// Blur Glow-Pass
+				var i = 0;
+				
 				gl.useProgram( gl.blurProgram );
 				
 				gl.uniform1i( gl.blurProgram.uni.blurSamplerPointer, 0 );
@@ -1199,8 +1201,8 @@
 				gl.bindBuffer( gl.ARRAY_BUFFER, gl.vUVScreenBuffer );
 				gl.vertexAttribPointer( NX_UV_I, 2, gl.FLOAT, false, 0, 0 );
 				
-				var i;
-				for( i = 0; i < 20; i++ )
+				
+				for( i = 0; i < 1; i++ )
 				{
 					gl.bindFramebuffer( gl.FRAMEBUFFER, gl.glowFramebuffer[(i+1)%2] );
 					gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT );
@@ -1210,11 +1212,12 @@
 					
 					gl.drawArrays( gl.TRIANGLES, 0, 6 );
 				}
-				
+		
 				// Composite-Program
 				gl.useProgram( gl.compProgram );
 				gl.bindFramebuffer( gl.FRAMEBUFFER, null );
-				gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT );
+				
+				//gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT );
 				
 				gl.uniform1i( gl.compProgram.uni.colorSamplerPointer, 0 );
 				gl.uniform1i( gl.compProgram.uni.glowSamplerPointer, 1 );
@@ -1223,7 +1226,7 @@
 				gl.bindTexture( gl.TEXTURE_2D, gl.beautyPass );
 				
 				gl.activeTexture( gl.TEXTURE1 );
-				gl.bindTexture( gl.TEXTURE_2D, gl.glowPass[(i+1)%2] );
+				gl.bindTexture( gl.TEXTURE_2D, gl.glowPass[0] );
 				
 				gl.drawArrays( gl.TRIANGLES, 0, 6 );
 			}
