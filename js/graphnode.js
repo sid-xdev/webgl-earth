@@ -1,37 +1,3 @@
-
-	// Structur for the 3D-Geometry
-	function pLeaf( gId, dTex, dUV, tTex, bTex, sTex, rTex, gTex ) 
-	{	
-		this.geometryId = gId;
-		this.program = "default"
-		
-		this.diffuse = dTex;
-		this.diffus_uvId = dUV;
-		this.diffuse_offset = [1,1];
-		
-		this.transparent = tTex;
-		this.transparent_uvId = dUV;
-		this.transparent_offset = [1,1];
-		
-		this.normal = bTex;
-		this.normal_uvId = dUV;
-		this.normal_offset = [1,1];
-		
-		this.specular = sTex;
-		this.specular_uvId = dUV;
-		this.specular_offset = [1,1];
-		
-		this.reflection = rTex;
-		this.reflection_uvId = dUV;
-		this.reflection_offset = [1,1];
-		
-		this.glow = gTex;
-		this.glow_uvId = dUV;
-		this.glow_offset = [1,1];
-		
-		this.posMat;
-	}
-	
 	// Base Class for all Treenodes
 	function Node( name )
 	{
@@ -115,18 +81,6 @@
 		return this.allPolycount;
 	};
 
-	Node.prototype.getVertexBuffer = function( buffer, index, list )
-	{
-		var len = this.childs.length;
-
-		for( var i = 0; i < len; i++ )
-		{
-			index = this.childs[i].getVertexBuffer( buffer, index, list );
-		}
-		
-		return index;
-	};
-
 	Node.prototype.calcTransformation = function( mat )
 	{
 		var buffer = new Array();
@@ -180,18 +134,6 @@
 		return index;
 	};
 	
-	Node.prototype.getUVBuffer = function( buffer, index, list )
-	{
-		var len = this.childs.length;
-
-		for( var i = 0; i < len; i++ )
-		{
-			index = this.childs[i].getUVBuffer( buffer, index, list );
-		}
-		
-		return index;
-	};
-	
 	function cNode( p_name, p_angle, p_ratio, p_near, p_far ) //Camera-Node
 	{
 		Node.call( this, p_name );
@@ -234,68 +176,26 @@
 		this.width = this.height*this.ratio;
 	}
 	
+	// Base Leaf
+	function Leaf( geometryIdx, pipelineIdx )
+	{
+		this.position = new Mat4()
+		this.pipelineIndex = geometryIdx;
+		this.geometryIndex = pipelineIdx;
+	}
+	
 	// Container-Node for a pLeaf
 	function pNode( name, leaf )
 	{
 		Node.call( this, name );
 		
 		this.leaf = leaf;
-		this.ownPolycount = 0;
 		this.show = true;
-		this.lightState = 1;
 	}
 	
 	pNode.prototype = new Node();
 	
 	pNode.prototype.constructor = pNode;
-	
-	pNode.prototype.getUVBuffer = function( buffer, index, list )
-	{
-		var len = this.childs.length;
-		
-		index = list[this.leaf.geometryId].getUVBuffer( buffer, index );
-		
-		for( var i = 0; i < len; i++ )
-		{
-			index = this.childs[i].getUVBuffer( buffer, index, list );
-		}
-				
-		return index;
-	};
-	
-	pNode.prototype.getVertexBuffer = function( buffer, index, list )
-	{
-		var len = this.childs.length;
-		
-		index = list[this.leaf.geometryId].getVertexBuffer( buffer, index );
-		
-		for( var i = 0; i < len; i++ )
-		{
-			index = this.childs[i].getVertexBuffer( buffer, index, list );
-		}
-		
-		return index;
-	};
-	
-	pNode.prototype.getPolyCounts = function( list )
-	{
-		if( this.changed )
-		{
-			var pCount = 0;
-			var	len = this.childs.length;
-			
-			this.ownPolycount = list[this.leaf.geometryId].polycount;
-			
-			for( var i = 0; i < len; i++ )
-			{
-				pCount += this.childs[i].getPolyCounts( list );
-			}
-			
-			this.allPolycount = pCount + this.ownPolycount;
-			this.changed = false;
-		}
-		return this.allPolycount;
-	};
 	
 	pNode.prototype.calcTransformation = function( mat )
 	{
@@ -308,7 +208,7 @@
 			newMat = mat;
 		}
 		
-		this.leaf.posMat = this.ownMat;
+		this.leaf.position = this.ownMat;
 		
 		for( var i = 0; i < len; i++ )
 		{
@@ -365,18 +265,10 @@
 		this.timer = new Timer();
 		this.sGraph = new gNode( "TopNode" );
 		this.pCount = 0;
-		this.changed = true;
-		this.oList = false;
 		this.cameras = [];
 	}
 	
 	Scenegraph.prototype.MAIN_CAMERA = 0;
-
-	Scenegraph.prototype.change = function()
-	{
-		this.pCount = this.sGraph.getPolyCounts( this.oList );
-		this.changed = false;
-	};
 
 	Scenegraph.prototype.getChilds = function( buffer, index )
 	{
@@ -384,16 +276,6 @@
 		index++;
 		
 		return this.sGraph.getChilds( buffer, index );
-	};
-
-	Scenegraph.prototype.getSceneVertexBuffer = function( buffer, index )
-	{
-		return this.sGraph.getVertexBuffer( buffer, index, this.oList );
-	};
-	
-	Scenegraph.prototype.getSceneUVBuffer = function( buffer, index )
-	{
-		return this.sGraph.getUVBuffer( buffer, index, this.oList );
 	};
 
 	Scenegraph.prototype.calcSceneTransformation = function( mat )
@@ -419,61 +301,5 @@
 		}
 		return false;	
 	};
-	
-	Scenegraph.prototype.sort = function()
-	{
-		
-		var childs = [];
-		var childcount = this.getChilds( childs, 0 );
-		
-		var sort_sg = new Scenegraph();
-		var nTop = new gNode( "Top" );
-		var def = new gNode( "colorProgram" );
-		var earth = new gNode( "earthProgram" );
-		var n1 = new gNode( "1." );
-		var n2 = new gNode( "2." );
-		
-		def.type = "program";
-		earth.type = "program";
-		
-		nTop.addChild( def );
-		nTop.addChild( earth );
-		earth.addChild( n1 );
-		earth.addChild( n2 );
-		
-		sort_sg.oList = this.oList;
-		sort_sg.addGraph( nTop );
-		
-		for( var i = 0; i < childcount; i++ )
-		{
-			if( childs[i].constructor === pNode )
-			{
-				var newnode = new pNode( childs[i].name, childs[i].leaf );
-				newnode.lightState = childs[i].lightState;
-				
-				switch( childs[i].program )
-				{
-				case "earth":
-					{
-						if( childs[i].leaf.transparent == 10 )
-						{			
-							n1.addChild( newnode );
-						}
-						else
-						{
-							n2.addChild( newnode );
-						}
-						break;
-					}
-				default:
-					{
-						def.addChild( newnode );
-					}
-				}
-			}
-		}
-		
-		return sort_sg;
-	}
 	
 	

@@ -7,151 +7,18 @@ function PlanetDemo()
 	var canvas;
 	var legend;
 	var status;
+	
+	var textures;
+	var models;
+	var pipelines;
+	
+	var vertexBuffer;
+	var uvBuffer;
+	var normalBuffer;
 
 	NX_POS_I = 0;
 	NX_UV_I = 1;
 	NX_NORM_I = 2;
-
-	NX_TEX1_TI = 3;
-	NX_TEX2_TI = 4;
-	NX_TEX3_TI = 5;
-	NX_TEX4_TI = 6;
-	NX_TEX5_TI = 7;
-
-	NX_MAT1_MI = 10;
-
-	function cube() {
-		var box = new Model3("Cube");
-
-		var a = new Vec3(1, 1, 1);
-		var b = new Vec3(1, 1, -1);
-		var c = new Vec3(-1, 1, -1);
-		var d = new Vec3(-1, 1, 1);
-
-		var e = new Vec3(1, -1, 1);
-		var f = new Vec3(1, -1, -1);
-		var g = new Vec3(-1, -1, -1);
-		var h = new Vec3(-1, -1, 1);
-
-		box.addPoly(a, b, e, new Vec2(1, 1), new Vec2(0, 1), new Vec2(1, 0));
-		box.addPoly(e, b, f, new Vec2(1, 0), new Vec2(0, 1), new Vec2(0, 0));
-
-		box.addPoly(b, c, f, new Vec2(1, 1), new Vec2(0, 1), new Vec2(1, 0));
-		box.addPoly(f, c, g, new Vec2(1, 0), new Vec2(0, 1), new Vec2(0, 0));
-
-		box.addPoly(c, d, g, new Vec2(1, 1), new Vec2(0, 1), new Vec2(1, 0));
-		box.addPoly(g, d, h, new Vec2(1, 0), new Vec2(0, 1), new Vec2(0, 0));
-
-		box.addPoly(d, a, h, new Vec2(1, 1), new Vec2(0, 1), new Vec2(1, 0));
-		box.addPoly(h, a, e, new Vec2(1, 0), new Vec2(0, 1), new Vec2(0, 0));
-
-		box.addPoly(a, d, b, new Vec2(1, 1), new Vec2(0, 1), new Vec2(1, 0));
-		box.addPoly(b, d, c, new Vec2(1, 0), new Vec2(0, 1), new Vec2(0, 0));
-
-		box.addPoly(e, h, f, new Vec2(1, 1), new Vec2(0, 1), new Vec2(1, 0));
-		box.addPoly(f, h, g, new Vec2(1, 0), new Vec2(0, 1), new Vec2(0, 0));
-
-		for (var i = 0; i < box.polycount; i++) {
-			var index = i * 9
-			var vec1 = new Vec3(box.vertices[index], box.vertices[index + 1], box.vertices[index + 2]).norm().scalar(1);
-			var vec2 = new Vec3(box.vertices[index + 3], box.vertices[index + 4], box.vertices[index + 5]).norm().scalar(1);
-			var vec3 = new Vec3(box.vertices[index + 6], box.vertices[index + 7], box.vertices[index + 8]).norm().scalar(1);
-
-			box.vertices[index] = vec1[0];
-			box.vertices[index + 1] = vec1[1];
-			box.vertices[index + 2] = vec1[2];
-			box.vertices[index + 3] = vec2[0];
-			box.vertices[index + 4] = vec2[1];
-			box.vertices[index + 5] = vec2[2];
-			box.vertices[index + 6] = vec3[0];
-			box.vertices[index + 7] = vec3[1];
-			box.vertices[index + 8] = vec3[2];
-		}
-
-		return box;
-	}
-
-	function arrow() {
-		var box = new Model3("Arrow");
-
-		var a = new Vec3(0, 0, 0);
-		var b = new Vec3(2, 1, 1);
-		var c = new Vec3(2, -1, 1);
-		var d = new Vec3(2, 1, -1);
-		var e = new Vec3(2, -1, -1);
-
-		box.addPoly(a, b, c, new Vec2(0, 0), new Vec2(0, 1), new Vec2(1, 1));
-		box.addPoly(a, d, b, new Vec2(0, 0), new Vec2(0, 1), new Vec2(1, 1));
-		box.addPoly(a, e, d, new Vec2(0, 0), new Vec2(0, 1), new Vec2(1, 1));
-		box.addPoly(a, c, e, new Vec2(0, 0), new Vec2(0, 1), new Vec2(1, 1));
-
-		return box;
-	}
-
-	function icosa(radius, resolution, name) {
-		var pol = new Mat4();
-		var box = new Model3(name);
-		var phi = 0.5 * (1 + Math.sqrt(5));
-
-		var i = new Vec3(0, 1, phi);
-		var l = new Vec3(0, 1, -phi);
-		var j = new Vec3(0, -1, phi);
-
-		var k = new Vec3(0, -1, -phi);
-		var a = new Vec3(1, phi, 0);
-		var d = new Vec3(1, -phi, 0);
-
-		var b = new Vec3(-1, phi, 0);
-		var c = new Vec3(-1, -phi, 0);
-		var g = new Vec3(phi, 0, 1);
-
-		var f = new Vec3(-phi, 0, 1);
-		var h = new Vec3(phi, 0, -1);
-		var e = new Vec3(-phi, 0, -1);
-
-		box.lvl = resolution;
-		box.radius = radius;
-		box.addPoly(b, e, f, new Vec2(10 / 11, 2 / 3), new Vec2(9 / 11, 1 / 3), new Vec2(1, 1 / 3));
-		box.addPoly(b, l, e, new Vec2(10 / 11, 2 / 3), new Vec2(8 / 11, 2 / 3), new Vec2(9 / 11, 1 / 3));
-		box.addPoly(b, a, l, new Vec2(10 / 11, 2 / 3), new Vec2(9 / 11, 1), new Vec2(8 / 11, 2 / 3));
-		box.addPoly(b, i, a, new Vec2(0, 2 / 3), new Vec2(2 / 11, 2 / 3), new Vec2(1 / 11, 1));
-		box.addPoly(b, f, i, new Vec2(0, 2 / 3), new Vec2(1 / 11, 1 / 3), new Vec2(2 / 11, 2 / 3));
-		box.addPoly(j, i, f, new Vec2(3 / 11, 1 / 3), new Vec2(2 / 11, 2 / 3), new Vec2(1 / 11, 1 / 3));
-		box.addPoly(j, g, i, new Vec2(3 / 11, 1 / 3), new Vec2(4 / 11, 2 / 3), new Vec2(2 / 11, 2 / 3));
-		box.addPoly(j, d, g, new Vec2(3 / 11, 1 / 3), new Vec2(5 / 11, 1 / 3), new Vec2(4 / 11, 2 / 3));
-		box.addPoly(j, c, d, new Vec2(3 / 11, 1 / 3), new Vec2(4 / 11, 0), new Vec2(5 / 11, 1 / 3));
-		box.addPoly(j, f, c, new Vec2(3 / 11, 1 / 3), new Vec2(1 / 11, 1 / 3), new Vec2(2 / 11, 0));
-		box.addPoly(e, c, f, new Vec2(9 / 11, 1 / 3), new Vec2(10 / 11, 0), new Vec2(1, 1 / 3));
-		box.addPoly(e, k, c, new Vec2(9 / 11, 1 / 3), new Vec2(7 / 11, 1 / 3), new Vec2(8 / 11, 0));
-		box.addPoly(e, l, k, new Vec2(9 / 11, 1 / 3), new Vec2(8 / 11, 2 / 3), new Vec2(7 / 11, 1 / 3));
-		box.addPoly(g, a, i, new Vec2(4 / 11, 2 / 3), new Vec2(3 / 11, 1), new Vec2(2 / 11, 2 / 3));
-		box.addPoly(g, h, a, new Vec2(4 / 11, 2 / 3), new Vec2(6 / 11, 2 / 3), new Vec2(5 / 11, 1));
-		box.addPoly(g, d, h, new Vec2(4 / 11, 2 / 3), new Vec2(5 / 11, 1 / 3), new Vec2(6 / 11, 2 / 3));
-		box.addPoly(d, k, h, new Vec2(5 / 11, 1 / 3), new Vec2(7 / 11, 1 / 3), new Vec2(6 / 11, 2 / 3));
-		box.addPoly(d, c, k, new Vec2(5 / 11, 1 / 3), new Vec2(6 / 11, 0), new Vec2(7 / 11, 1 / 3));
-		box.addPoly(a, h, l, new Vec2(7 / 11, 1), new Vec2(6 / 11, 2 / 3), new Vec2(8 / 11, 2 / 3));
-		box.addPoly(k, l, h, new Vec2(7 / 11, 1 / 3), new Vec2(8 / 11, 2 / 3), new Vec2(6 / 11, 2 / 3));
-		box.tesselation(resolution);
-
-		for (var i = 0; i < box.polycount; i++) {
-			var index = i * 9
-			var vec1 = new Vec3(box.vertices[index], box.vertices[index + 1], box.vertices[index + 2]).norm().scalar(radius);
-			var vec2 = new Vec3(box.vertices[index + 3], box.vertices[index + 4], box.vertices[index + 5]).norm().scalar(radius);
-			var vec3 = new Vec3(box.vertices[index + 6], box.vertices[index + 7], box.vertices[index + 8]).norm().scalar(radius);
-
-			box.vertices[index] = vec1[0];
-			box.vertices[index + 1] = vec1[1];
-			box.vertices[index + 2] = vec1[2];
-			box.vertices[index + 3] = vec2[0];
-			box.vertices[index + 4] = vec2[1];
-			box.vertices[index + 5] = vec2[2];
-			box.vertices[index + 6] = vec3[0];
-			box.vertices[index + 7] = vec3[1];
-			box.vertices[index + 8] = vec3[2];
-		}
-
-		return box;
-	}
 
 	function createFrustumMat(left, right, bottom, top, near, far) {
 		var mat = new Mat4();
@@ -190,25 +57,56 @@ function PlanetDemo()
 			0, 0, (near + far) / (near - far), -1,
 			0, 0, 2 * near * far / (near - far), 0]);
 	}
-
+	
+	function getTextureIndex( name )
+	{
+		for( var index = 0; index < textures.length; ++index )
+		{
+			if( textures[index].identifier === name )
+			{
+				return index;
+			}
+		}
+		return -1;
+	}
+	
+	function getGeomtryIndex( name )
+	{
+		for( var index = 0; index < geometry.length; ++index )
+		{
+			if( geometry[index].name === name )
+			{
+				return index;
+			}
+		}
+		return -1;
+	}
+	
+	function getPipelineIndex( name )
+	{
+		for( var index = 0; index < pipelines.length; ++index )
+		{
+			if( pipelines[index].identifier === name )
+			{
+				return index;
+			}
+		}
+		return -1;
+	}
+	
 	function initScene() {
 		sg = new Scenegraph();
-		sg.oList = new Polylist();
-
-		var planet = icosa(1, 1, "planet");
-		var pos = sg.oList.addObj(planet);
-		var pos1 = sg.oList.addObj(arrow());
-
-		var nSun = new pNode("Sun", 	//Nodename 
-			new pLeaf(pos, // geometry-index
+		
+		var nSun = new gNode("Sun" );/*, 	//Nodename 
+			new pLeaf(sphereGeometryIndex, // geometry-index
 				10, // colortex-index 
 				0, // uvmap-index 
 				10, // trensparent-index
 				0, // normal-index 
 				0, // spectular-index 
 				0, // reflection-index
-				10)); // glow-index
-		nSun.lightState = 0;
+				10)); // glow-index*/
+				
 		nSun.transformation = function (mat) {
 			this.ownMat = Mat4.scale(34.8175, 34.8175, 34.8175);
 			this.childMat = mat;
@@ -251,15 +149,16 @@ function PlanetDemo()
 			return this.childMat;
 		};
 
-		var nStars = new pNode("Stars", //Nodename
-			new pLeaf(sg.oList.addObj(cube()), // geometry-index
+		var nStars = new gNode("Stars");/*, //Nodename
+			new pLeaf( 
+					cubeGeometryIndex, //geometry-index
 				7, // colortex-index 
 				0, // uvmap-index 
 				10, // trensparent-index
 				0, // normal-index 
 				0, // spectular-index 
 				0, // reflection-index
-				0));// glow-index
+				0));// glow-index*/
 		nStars.transformation = function (mat) {
 			var trn = Mat4.translate(mat[12], mat[13], mat[14]);
 			var scl = Mat4.scale(8000, 8000, 8000)
@@ -269,18 +168,10 @@ function PlanetDemo()
 
 			return this.childMat;
 		};
-		nStars.leaf.diffuse_offset = [4, 4];
-		nStars.lightState = 0;
 
 		var nEarth = new pNode("Earth", //Nodename
-			new pLeaf(pos, // geometry-index
-				1, // colortex-index 
-				0, // uvmap-index 
-				10, // trensparent-index
-				4, // normal-index 
-				5, // spectular-index 
-				3, // reflection-index
-				0));// glow-index			
+			new Earth( getGeomtryIndex( "sphere" ), getPipelineIndex( "Earth" ) ) );
+			
 		nEarth.transformation = function (mat) {
 			var rot = Mat4.rotate(31.717474, new Vec3(0, 0, 1));
 			var scl = Mat4.scale(6.378, 6.378, 6.378);//(6.378)
@@ -291,17 +182,17 @@ function PlanetDemo()
 
 			return this.childMat;
 		};
-		nEarth.program = "earth";
 
-		var nCloud = new pNode("Cloud", 	//Nodename 
-			new pLeaf(pos, // geometry-index
-				10, // colortex-index 
-				0, // uvmap-index 
-				6, // trensparent-index
-				6, // normal-index 
-				0, // spectular-index 
-				0, // reflection-index
-				0)); // glow-index
+		var nCloud = new gNode( "Cloud" );/*, 	//Nodename 
+			new pLeaf(
+					sphereGeometryIndex, // geometry-index
+					10, // colortex-index 
+					0, // uvmap-index 
+					6, // trensparent-index
+					6, // normal-index 
+					0, // spectular-index 
+					0, // reflection-index
+					0)); // glow-index*/
 
 		nCloud.transformation = function (mat) {
 			var scl = Mat4.scale(6.403, 6.403, 6.403);
@@ -311,9 +202,8 @@ function PlanetDemo()
 
 			return this.childMat;
 		};
-		nCloud.program = "earth";
 
-		var nMoon = new pNode("Moon", new pLeaf(pos, 2/*cTex*/, 0/*cUV*/, 10/*tTex*/, 0/*bTex*/, 0/*sTex*/, 0/*rTex*/));
+		var nMoon = new gNode( "Moon" );//, new pLeaf(sphereGeometryIndex, 2/*cTex*/, 0/*cUV*/, 10/*tTex*/, 0/*bTex*/, 0/*sTex*/, 0/*rTex*/));
 		nMoon.transformation = function (mat) {
 			var time = sg.timer.gameTime;
 			var w = 0.0000000152502257 * time;
@@ -381,13 +271,14 @@ function PlanetDemo()
 
 			return this.childMat;
 		}
-
-		var markerT = new pLeaf(pos1, 10, 0, 10, 0, 0, 0, 10);
-		var markerR = new pLeaf(pos1, 10, 0, 10, 0, 0, 0, 10);
-		var markerL = new pLeaf(pos1, 10, 0, 10, 0, 0, 0, 10);
-		var markerB = new pLeaf(pos1, 10, 0, 10, 0, 0, 0, 10);
-
-		var nMarkTop = new pNode("MarkTop", markerT);
+		/*
+		var markerT = new pLeaf(arrowGeomtryIndex, 10, 0, 10, 0, 0, 0, 10);
+		var markerR = new pLeaf(arrowGeomtryIndex, 10, 0, 10, 0, 0, 0, 10);
+		var markerL = new pLeaf(arrowGeomtryIndex, 10, 0, 10, 0, 0, 0, 10);
+		var markerB = new pLeaf(arrowGeomtryIndex, 10, 0, 10, 0, 0, 0, 10);
+		*/
+		
+		var nMarkTop = new gNode("MarkTop");//, markerT);
 		nMarkTop.lightState = 0;
 		nMarkTop.transformation = function (mat) {
 			this.ownMat = mat.multiply(Mat4.rotate(-90, new Vec3(0, 1, 0)).multiply(Mat4.translate(this.parent.move, 0, 0).multiply(Mat4.scale(1 / 2, 0.25 / 4, 0.5 / 2))));
@@ -396,7 +287,7 @@ function PlanetDemo()
 			return this.childMat;
 		}
 
-		var nMarkLeft = new pNode("MarkLeft", markerL);
+		var nMarkLeft = new gNode( "MarkLeft" );//, markerL);
 		nMarkLeft.lightState = 0;
 		nMarkLeft.transformation = function (mat) {
 			this.ownMat = mat.multiply(Mat4.rotate(180, new Vec3(0, 1, 0)).multiply(Mat4.translate(this.parent.move, 0, 0).multiply(Mat4.scale(1 / 2, 0.25 / 4, 0.5 / 2))));
@@ -405,7 +296,7 @@ function PlanetDemo()
 			return this.childMat;
 		}
 
-		var nMarkRight = new pNode("MarkRight", markerR);
+		var nMarkRight = new gNode( "MarkRight" );//, markerR);
 		nMarkRight.lightState = 0;
 		nMarkRight.transformation = function (mat) {
 			this.ownMat = mat.multiply(Mat4.rotate(0, new Vec3(0, 1, 0)).multiply(Mat4.translate(this.parent.move, 0, 0).multiply(Mat4.scale(1 / 2, 0.25 / 4, 0.5 / 2))));
@@ -414,7 +305,7 @@ function PlanetDemo()
 			return this.childMat;
 		}
 
-		var nMarkBottom = new pNode("MarkBottom", markerB);
+		var nMarkBottom = new gNode( "MarkBottom" );//, markerB);
 		nMarkBottom.lightState = 0;
 		nMarkBottom.transformation = function (mat) {
 			this.ownMat = mat.multiply(Mat4.rotate(90, new Vec3(0, 1, 0)).multiply(Mat4.translate(this.parent.move, 0, 0).multiply(Mat4.scale(1 / 2, 0.25 / 4, 0.5 / 2))));
@@ -438,42 +329,6 @@ function PlanetDemo()
 
 		sg.vBuffer = new Float32Array(sg.pCount * 9);
 		sg.uvBuffer = new Float32Array(sg.pCount * 6);
-	}
-
-	function initTex(gl, list) {
-		gl.texList[0] = gl.createTexture();
-		var nTextures = 0;
-		for (var i = 0; i < list.length; i++) {
-			var img = new Image();
-
-			img.index = list[i].index;
-
-			appendStatus("Loading texture " + list[i].src + "...", "img" + img.index);
-
-			img.onerror = function (event) {
-				updateStatus("Failed to load texture " + this.src + ". Please reload web page.", "img" + this.index);
-			};
-
-			img.onload = function (event) {
-				updateStatus("Complete loading texture " + this.src + ".", "img" + this.index);
-				gl.texList[this.index] = gl.createTexture();
-				gl.bindTexture(gl.TEXTURE_2D, gl.texList[this.index]);
-				gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-				
-				gl.texImage2D( gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this );
-				
-				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-				gl.generateMipmap(gl.TEXTURE_2D);
-				gl.bindTexture(gl.TEXTURE_2D, null);
-				++nTextures;
-				if (nTextures == list.length) {
-					render();
-				}
-			};
-
-			img.src = list[i].src;
-		}
 	}
 
 	function initFramebuffer(gl) {
@@ -540,7 +395,7 @@ function PlanetDemo()
 		gl.bindTexture(gl.TEXTURE_2D, null);
 	}
 
-	function initGl(canvas) {
+	function initializeGl() {
 		try {
 			gl = canvas.getContext('webgl'); //WebGLDebugUtils.makeDebugContext(canvas.getContext('webgl'));			// abrufen des Kontext für WebGL aus dem canvas
 		}
@@ -549,14 +404,179 @@ function PlanetDemo()
 		// wenn Kontext nicht vorhanden dann webGL nicht unterstützt oder deaktiviert
 		if (!gl) {
 			alert('webGL not activiated or supported');
+			return;
 		}
 
-		gl.texList = new Array();
+		textures = [ 
+			{
+				identifier : "night",
+				source : "img/night.jpg",
+			},
+			{
+				identifier : "moon",
+				source : "img/moon.jpg",
+			},
+			{
+				identifier : "earth",
+				source : "img/world.jpg",
+			},
+			{
+				identifier : "earth_height",
+				source : "img/bump.jpg",
+			},
+			{
+				identifier : "earth_water",
+				source : "img/spec.jpg",
+			},
+			{
+				identifier : "earth_cloud",
+				source : "img/cloud.jpg",
+			},
+			{
+				identifier : "stars",
+				source : "img/stars.jpg",
+			}
+		]
+		
+		geometry = [
+			NX_GEOMETRY.createArrow(),
+			NX_GEOMETRY.createBaseCube(),
+			NX_GEOMETRY.createIcosaeder( 1, 1, "sphere" )
+		]
+		
+		pipelines = [
+			NX_EARTH_PIPELINE
+		];
+		
+		loadShaderSources();
 	}
+	
+	function loadShaderSources()
+	{
+		var fileEnding = ".txt";
+		var prefix = "shader/"
+		var finishedShaderCount = 2*pipelines.length;
 
+		function getShaderFile( id_object ) {
+			return id_object.pipeline.identifier + '_' + id_object.type + 'Shader' + fileEnding;
+		};
+
+		function ErrorHandler(response, object) {
+			updateStatus( 'Failed to load fragment shader "' + getShaderFile( object ) + '".', object.type + object.pipeline.identifier );
+		}
+
+		function SuccessHandler(response, object) {
+			updateStatus( 'Complete loading fragment shader "' + getShaderFile( object ) + '".', object.type + object.pipeline.identifier );
+
+			if (object.type == 'f') {
+				object.pipeline.fragmentSource = response;
+			}
+			else {
+				object.pipeline.vertexSource = response;
+			}
+
+			--finishedShaderCount
+			if( finishedShaderCount === 0 ) {
+				if( status )
+				{
+					status.innerHTML = '';
+				}
+				loadTextureSources();
+			}
+		}
+		
+		function ShaderId( pipeline, type )
+		{
+			this.pipeline = pipeline;
+			this.type = type;
+		};
+		
+		function getSource( pipeline, type ) {
+			var shaderId = new ShaderId( pipeline, type );
+			var shaderFile = getShaderFile( shaderId );
+			appendStatus('Loading vertex shader "' + shaderFile + '" ...', shaderId.type + shaderId.pipeline.identifier );
+			NXJS.OpenAsyncGET( prefix + shaderFile, false, SuccessHandler, ErrorHandler, shaderId );
+		}
+		
+		for( var pipeline in pipelines )
+		{
+			getSource( pipelines[pipeline], 'v' );
+			getSource( pipelines[pipeline], 'f' );
+		}
+	}
+	
+	function loadTextureSources() {
+		var textureCount = textures.length;
+		
+		for ( var textureIndex in textures ) {
+			var texture = textures[textureIndex];
+			texture.image = new Image();
+
+			appendStatus( "Loading texture " + texture.source + "...", texture.source );
+
+			texture.image.onerror = function( event ) {
+				updateStatus( "Failed to load texture " + this.src + ". Please reload web page.", this.src );
+			};
+
+			texture.image.onload = function( event ) {
+				updateStatus( "Complete loading texture " + this.src + ".", this.src );
+				texture.texture = gl.createTexture();
+				gl.bindTexture( gl.TEXTURE_2D, texture.texture );
+				gl.pixelStorei( gl.UNPACK_FLIP_Y_WEBGL, true );
+				
+				gl.texImage2D( gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this );
+				
+				gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST );
+				gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST );
+				gl.generateMipmap( gl.TEXTURE_2D );
+				gl.bindTexture( gl.TEXTURE_2D, null );
+				--textureCount;
+				if ( textureCount === 0 ) {
+					render();
+				}
+			};
+
+			texture.image.src = texture.source;
+		}
+	}
+	
+	function initializePipelines()
+	{	
+		for( var pipeline of pipelines )
+		{			
+			var vertexShader = gl.createShader( gl.VERTEX_SHADER );
+			var fragmentShader = gl.createShader( gl.FRAGMENT_SHADER );
+
+			// Programm-Objekte für die Shader
+			pipeline.program = gl.createProgram();
+			
+			// zuordnen des Quellcodes zu den Shader-Objekten
+			gl.shaderSource( vertexShader, pipeline.vertexSource );
+			gl.shaderSource( fragmentShader, pipeline.fragmentSource );
+
+			// kompilieren der Shader-Programme
+			gl.compileShader( vertexShader );
+			gl.compileShader( fragmentShader );
+
+			console.log( pipeline.identifier + "_vShader\n" + gl.getShaderInfoLog( vertexShader ));
+			console.log( pipeline.identifier + "_fShader\n" + gl.getShaderInfoLog( fragmentShader ));
+
+			// anhängen der Shaderprogramme an das Träger Programm
+			gl.attachShader( pipeline.program, vertexShader );
+			gl.attachShader( pipeline.program, fragmentShader );
+
+			// das Trägerprogramm wird abschliessend gelinkt
+			gl.linkProgram( pipeline.program );
+			
+			pipeline.reflect( gl );
+			
+			alert( pipeline.uniforms.sun_position );
+		}
+	}
+	
 	function initShader(list) {
 		var len = list.length;
-
+		
 		for (var i = 0; i < list.length; i++) {
 			var name = list[i].name.toLowerCase() + "Program";
 
@@ -588,14 +608,10 @@ function PlanetDemo()
 			// das Trägerprogramm wird abschliessend gelinkt
 			gl.linkProgram(gl[name]);
 		}
-
 		return true;
 	}
 
-	function initBuffer() {
-		sg.t = sg.sort();
-		sg.t.getSceneVertexBuffer(sg.vBuffer, 0);
-		sg.t.getSceneUVBuffer(sg.uvBuffer, 0);
+	function initializeBuffers() {
 
 		gl.vPosBuffer = gl.createBuffer();
 		gl.bindBuffer(gl.ARRAY_BUFFER, gl.vPosBuffer);
@@ -727,7 +743,7 @@ function PlanetDemo()
 
 			amblightColorPointer: gl.getUniformLocation(gl.colorProgram, "uAmbLightColor")
 		};
-
+		/*
 		gl.colorProgram.setUniformsPerFrame = function () {
 			gl.useProgram(this);
 
@@ -786,6 +802,7 @@ function PlanetDemo()
 			colorSamplerPointer: gl.getUniformLocation(gl.compProgram, "uBeautyLayerSampler"),
 			glowSamplerPointer: gl.getUniformLocation(gl.compProgram, "uGlowLayerSampler")
 		};
+		*/
 	}
 
 	function gauß(a, b) {
@@ -1011,22 +1028,19 @@ function PlanetDemo()
 	function drawPerObject(node, index, glow, program) {
 		var len = node.childs.length;
 
-		if (node.constructor === gNode && node.type == "program") {
+		if ( node.constructor === gNode && node.type == "program" ) {
 			program = gl[node.name];
 			program.setUniformsPerFrame();
-
-			gl.uniform1i(program.uni.glowStatePointer, glow);
-
 		}
 
 		for (var i = 0; i < len; i++) {
 			index = drawPerObject(node.childs[i], index, glow, program);
 		}
 
-		if (node.constructor === pNode && node.show) {
+		if ( node.constructor === pNode && node.show ) {
+			
 			program.setUniformsPerLeaf(node.leaf);
-			gl.uniform1i(program.uni.lightStatePointer, node.lightState);
-			gl.drawArrays(gl.TRIANGLES, index, 3 * node.ownPolycount);
+			gl.drawArrays( gl.TRIANGLES, index, 3 * node.ownPolycount );
 			index += 3 * node.ownPolycount;
 		}
 
@@ -1069,9 +1083,8 @@ function PlanetDemo()
 		}
 
 		sg.cameras[sg.MAIN_CAMERA].setRatio(canvas.width / canvas.height);
-		sg.calcSceneTransformation();
-		sg.t.getSceneUVBuffer(sg.uvBuffer, 0);
-
+		var renderables = sg.calcSceneTransformation();
+		/*
 		// Multipass rendering
 		gl.viewport(0, 0, canvas.width, canvas.height);
 
@@ -1092,15 +1105,13 @@ function PlanetDemo()
 		gl.bindFramebuffer(gl.FRAMEBUFFER, gl.beautyFramebuffer);
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-		gl.enable(gl.BLEND);
-
-		drawPerObject(sg.t.sGraph, 0, 0);
+		//drawPerObject(sg.t.sGraph, 0, 0);
 
 		// Glow-Pass
 		gl.bindFramebuffer(gl.FRAMEBUFFER, gl.glowFramebuffer[0]);
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-		drawPerObject(sg.t.sGraph, 0, 1);
+		//drawPerObject(sg.t.sGraph, 0, 1);
 
 		gl.disable(gl.BLEND);
 
@@ -1145,6 +1156,7 @@ function PlanetDemo()
 		gl.bindTexture(gl.TEXTURE_2D, gl.glowPass[0]);
 
 		gl.drawArrays(gl.TRIANGLES, 0, 6);
+		*/
 	}
 
 	function KeyPress(event) {
@@ -1285,52 +1297,8 @@ function PlanetDemo()
 		canvas.onmouseup = MouseUp;
 
 		// erstellen der Textureliste (TODO aus Datei auslesen);
-		var list = new Array(8);
-
-		list[0] = new function () {
-			this.index = 1;
-			this.src = "img/world.jpg";
-		};
-
-		list[1] = new function () {
-			this.index = 2;
-			this.src = "img/moon.jpg";
-		};
-
-		list[2] = new function () {
-			this.index = 3;
-			this.src = "";//"img/night.jpg";
-		};
-
-		list[3] = new function () {
-			this.index = 4;
-			this.src = "img/bump.jpg";
-		};
-
-		list[4] = new function () {
-			this.index = 5;
-			this.src = "img/spec.jpg";
-		};
-
-		list[5] = new function () {
-			this.index = 10;
-			this.src = "img/white.jpg";
-		};
-
-		list[6] = new function () {
-			this.index = 6;
-			this.src = "img/cloud.jpg";
-		};
-
-		list[7] = new function () {
-			this.index = 7;
-			this.src = "img/stars.jpg";
-		};
-
-		initGl(canvas);
 
 		initShader(slist);
-		initTex(gl, list);
 
 		if( legend && legend.style )
 		{
@@ -1339,11 +1307,12 @@ function PlanetDemo()
 	}
 
 	function render() {
+		initializePipelines();
 		initScene();
 
-		initBuffer();
+		initializeBuffers();
 		initFramebuffer(gl);
-		initUniform();
+		//initUniform();
 
 		sg.timer.multi = 10000;
 
@@ -1352,7 +1321,6 @@ function PlanetDemo()
 
 		gl.enable(gl.DEPTH_TEST);
 		gl.depthFunc(gl.LESS);
-		gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
 		tick();
 	}
@@ -1364,63 +1332,7 @@ function PlanetDemo()
 			legend = legend_div;
 			status = status_div;
 			
-			var shaderlist = [];
-			
-			shaderlist[0] = { name: "Color" };
-			shaderlist[1] = { name: "Blur" };
-			shaderlist[2] = { name: "Comp" };
-			shaderlist[3] = { name: "Earth" };
-
-			var len = shaderlist.length;
-			var fileEnding = ".txt";
-			var prefix = "shader/"
-			var finishedShaderCount = 0;
-
-			function getShaderFile(index, type) {
-				return shaderlist[index].name + '_' + type + 'Shader' + fileEnding;
-			};
-
-			function ErrorHandler(response, object) {
-				updateStatus('Failed to load fragment shader "' + getShaderFile(object.index, object.type) + '".', object.type + 'shader' + object.index);
-			}
-
-			function SuccessHandler(response, object) {
-				updateStatus('Complete loading fragment shader "' + getShaderFile(object.index, object.type) + '".', object.type + 'shader' + object.index);
-
-				if (object.type == 'f') {
-					shaderlist[object.index].f = response;
-				}
-				else {
-					shaderlist[object.index].v = response;
-				}
-
-				++finishedShaderCount
-				if (finishedShaderCount == 2 * len) {
-					if( status )
-					{
-						status.innerHTML = '';
-					}
-					webGLStart(shaderlist);
-				}
-			}
-			
-			function ShaderId( index, type )
-			{
-				this.index = index;
-				this.type = type;
-			};
-			
-			for (var i = 0; i < len; i++) {
-				
-				var vShader = new ShaderId( i, 'v' );
-				appendStatus('Loading vertex shader "' + getShaderFile(i, vShader.type) + '" ...', vShader.type + 'shader' + i);
-				NXJS.OpenAsyncGET(prefix + getShaderFile(i, vShader.type), false, SuccessHandler, ErrorHandler, vShader);
-
-
-				var fShader = new ShaderId( i, 'f' );
-				appendStatus('Loading fragment shader "' + getShaderFile(i, fShader.type) + '" ...', fShader.type + 'shader' + i);
-				NXJS.OpenAsyncGET(prefix + getShaderFile(i, fShader.type), false, SuccessHandler, ErrorHandler, fShader);
-			}
+			initializeGl();
 		}
 	}
 }

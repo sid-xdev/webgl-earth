@@ -7,7 +7,6 @@ HTTP://WWW.NOXCAIN.COM
 
 var NXEV = new function ()
 {
-
 	function mArrayContains(pEventArray, pEventHandler)
 	{
 		for (var i = 0; i < pEventArray.length; i++)
