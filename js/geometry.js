@@ -113,10 +113,25 @@ var NX_GEOMETRY = new function(){
 
 		for (var i = 0; i < box.polycount; i++) {
 			var index = i * 9
-			var vec1 = new Vec3(box.vertices[index], box.vertices[index + 1], box.vertices[index + 2]).norm().scalar(radius);
-			var vec2 = new Vec3(box.vertices[index + 3], box.vertices[index + 4], box.vertices[index + 5]).norm().scalar(radius);
-			var vec3 = new Vec3(box.vertices[index + 6], box.vertices[index + 7], box.vertices[index + 8]).norm().scalar(radius);
-
+			
+			var vec1 = new Vec3(box.vertices[index], box.vertices[index + 1], box.vertices[index + 2]).norm();
+			var vec2 = new Vec3(box.vertices[index + 3], box.vertices[index + 4], box.vertices[index + 5]).norm();
+			var vec3 = new Vec3(box.vertices[index + 6], box.vertices[index + 7], box.vertices[index + 8]).norm();
+			
+			box.normals[index] = vec1[0];
+			box.normals[index + 1] = vec1[1];
+			box.normals[index + 2] = vec1[2];
+			box.normals[index + 3] = vec2[0];
+			box.normals[index + 4] = vec2[1];
+			box.normals[index + 5] = vec2[2];
+			box.normals[index + 6] = vec3[0];
+			box.normals[index + 7] = vec3[1];
+			box.normals[index + 8] = vec3[2];
+			
+			vec1 = vec1.scalar(radius);
+			vec2 = vec2.scalar(radius);
+			vec3 = vec3.scalar(radius);
+			
 			box.vertices[index] = vec1[0];
 			box.vertices[index + 1] = vec1[1];
 			box.vertices[index + 2] = vec1[2];

@@ -46,6 +46,13 @@ Vec3.prototype.abs = function ()
 	return Math.sqrt( this[0]*this[0] + this[1]*this[1] + this[2]*this[2] );
 };
 
+Vec3.prototype.copy = function( buffer, offset )
+{
+	buffer[offset + 0] = this[0];
+	buffer[offset + 1] = this[1];
+	buffer[offset + 2] = this[2];
+};
+
 function Vec2( x, y )
 {
 	this[0] = x;
@@ -81,6 +88,12 @@ Vec2.prototype.dot = function ( p )
 Vec2.prototype.norm = function ()
 {
 	return this.scalar(  1/Math.sqrt( this[0]*this[0] + this[1]*this[1] ) );
+};
+
+Vec2.prototype.copy = function( buffer, offset )
+{
+	buffer[offset + 0] = this[0];
+	buffer[offset + 1] = this[1];
 };
 
 function Mat4( mat )
@@ -553,11 +566,11 @@ Model3.prototype.tesselation = function( steps )
 		var newUVs = new Array( this.uvMaps.length );
 		var newPolycount = 0;
 		
-		for( var i = 0; i < this.polycount; i++ )
+		for( let i = 0; i < this.polycount; i++ )
 		{
-			var vertexPoints = new Array(6);
-			var uvPoints = new Array(6);
-			var index = 9*i;
+			let vertexPoints = new Array(6);
+			let uvPoints = new Array(6);
+			let index = 9*i;
 			
 			vertexPoints[0] = new Vec3( this.vertices[index], this.vertices[index+1], this.vertices[index+2] );
 			vertexPoints[2] = new Vec3( this.vertices[index+3], this.vertices[index+4], this.vertices[index+5] );
@@ -688,9 +701,9 @@ Model3.prototype.getVertexBuffer = function( buffer, index )
 
 Model3.prototype.getUVBuffer = function( buffer, index )
 {
-	for( var i = 0; i < this.polycount; i++ )
+	for( let i = 0; i < this.polycount; i++ )
 	{
-		var idx = 6*i;
+		let idx = 6*i;
 		
 		buffer[index] 	= this.uvMaps[0][idx];
 		buffer[index+1]	= this.uvMaps[0][idx+1];
@@ -705,7 +718,7 @@ Model3.prototype.getUVBuffer = function( buffer, index )
 
 Model3.prototype.getNormalBuffer = function( buffer, index )
 {
-	for( var i = 0; i < this.polys.length; i++ )
+	for( let i = 0; i < this.polycount; i++ )
 	{
 		var norm = this.polys[i].getNormal().norm();
 		buffer[index] 	= this.polys[i][6][0];
@@ -721,5 +734,44 @@ Model3.prototype.getNormalBuffer = function( buffer, index )
 	}
 	
 	return index;
+};
+
+Model3.prototype.getVertexAttributes = function( buffer, offset )
+{
+	
+	const VERTICES_PER_POLYGON = 3;
+	
+	const FLOAT32_PER_POSITION = 3;
+	const FLOAT32_PER_NORMAL = 3;
+	const FLOAT32_PER_UV = 2;
+	
+	const FLOAT32_PER_VERTEX = FLOAT32_PER_POSITION + FLOAT32_PER_NORMAL + FLOAT32_PER_UV;
+	
+	for( let polygon_index = 0; polygon_index < this.polycount; polygon_index++ )
+	{	
+		for( let vertex_index = 0; vertex_index < VERTICES_PER_POLYGON; ++vertex_index )
+		{
+			const current_buffer_index = offset + polygon_index * VERTICES_PER_POLYGON * FLOAT32_PER_VERTEX  + vertex_index * FLOAT32_PER_VERTEX;
+			
+			//vertex coords
+			const current_vertex_index = polygon_index*VERTICES_PER_POLYGON*FLOAT32_PER_POSITION + vertex_index*FLOAT32_PER_POSITION;
+			buffer[current_buffer_index] 	= this.vertices[current_vertex_index];
+			buffer[current_buffer_index+1]	= this.vertices[current_vertex_index+1];
+			buffer[current_buffer_index+2]	= this.vertices[current_vertex_index+2];
+			
+			//vertex normal
+			const current_normal_index = polygon_index*VERTICES_PER_POLYGON*FLOAT32_PER_NORMAL + vertex_index*FLOAT32_PER_NORMAL;
+			buffer[current_buffer_index+3] 	= this.normals[current_normal_index];
+			buffer[current_buffer_index+4]	= this.normals[current_normal_index+1];
+			buffer[current_buffer_index+5]	= this.normals[current_normal_index+2];
+			
+			//uv coords
+			const current_uv_index = polygon_index*VERTICES_PER_POLYGON*FLOAT32_PER_UV + vertex_index*FLOAT32_PER_UV;
+			buffer[current_buffer_index+6] 	= this.uvMaps[0][current_uv_index];
+			buffer[current_buffer_index+7]	= this.uvMaps[0][current_uv_index+1];
+		}
+	}
+	
+	return offset + this.polycount * VERTICES_PER_POLYGON * FLOAT32_PER_VERTEX;
 };
 

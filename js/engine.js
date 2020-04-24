@@ -1,5 +1,7 @@
 function PlanetDemo()
 {
+	var webGlVersion = 2;
+	
 	var gl;
 	var sg;
 	var input;
@@ -9,16 +11,15 @@ function PlanetDemo()
 	var status;
 	
 	var textures;
-	var models;
+	var geometry;
 	var pipelines;
-	
-	var vertexBuffer;
-	var uvBuffer;
-	var normalBuffer;
 
-	NX_POS_I = 0;
-	NX_UV_I = 1;
-	NX_NORM_I = 2;
+	var deviceVertexBuffer;
+
+	NX_VERTEX_BUFFER_LOCATION = 0;
+	NX_NORMAL_BUFFER_LOCATION = 1;
+	NX_UV_BUFFER_LOCATION = 2;
+	
 
 	function createFrustumMat(left, right, bottom, top, near, far) {
 		var mat = new Mat4();
@@ -74,7 +75,7 @@ function PlanetDemo()
 	{
 		for( var index = 0; index < geometry.length; ++index )
 		{
-			if( geometry[index].name === name )
+			if( geometry[index].model.name === name )
 			{
 				return index;
 			}
@@ -94,7 +95,7 @@ function PlanetDemo()
 		return -1;
 	}
 	
-	function initScene() {
+	function initializeScene() {
 		sg = new Scenegraph();
 		
 		var nSun = new gNode("Sun" );/*, 	//Nodename 
@@ -169,8 +170,8 @@ function PlanetDemo()
 			return this.childMat;
 		};
 
-		var nEarth = new pNode("Earth", //Nodename
-			new Earth( getGeomtryIndex( "sphere" ), getPipelineIndex( "Earth" ) ) );
+		var nEarth = new GeometryNode("Earth", //Nodename
+			new Earth( getGeomtryIndex( "Sphere" ), getPipelineIndex( "Earth" ) ) );
 			
 		nEarth.transformation = function (mat) {
 			var rot = Mat4.rotate(31.717474, new Vec3(0, 0, 1));
@@ -179,26 +180,6 @@ function PlanetDemo()
 
 			this.ownMat = newMat.multiply(scl);
 			this.childMat = newMat;
-
-			return this.childMat;
-		};
-
-		var nCloud = new gNode( "Cloud" );/*, 	//Nodename 
-			new pLeaf(
-					sphereGeometryIndex, // geometry-index
-					10, // colortex-index 
-					0, // uvmap-index 
-					6, // trensparent-index
-					6, // normal-index 
-					0, // spectular-index 
-					0, // reflection-index
-					0)); // glow-index*/
-
-		nCloud.transformation = function (mat) {
-			var scl = Mat4.scale(6.403, 6.403, 6.403);
-
-			this.ownMat = mat.multiply(scl);
-			this.childMat = mat;
 
 			return this.childMat;
 		};
@@ -314,8 +295,7 @@ function PlanetDemo()
 			return this.childMat;
 		}
 
-		nEarth.addChild(nCloud);
-		nCloud.addChild(nMark);
+		nEarth.addChild(nMark);
 		nMark.addChild(nMarkTop);
 		nMark.addChild(nMarkLeft);
 		nMark.addChild(nMarkRight);
@@ -326,14 +306,12 @@ function PlanetDemo()
 		nEarthGroup.addChild(nMoon);
 		nSun.addChild(nEarthGroup);
 		sg.addGraph(nSun);
-
-		sg.vBuffer = new Float32Array(sg.pCount * 9);
-		sg.uvBuffer = new Float32Array(sg.pCount * 6);
 	}
 
-	function initFramebuffer(gl) {
+	function initializeFramebuffer() {
+		
 		gl.beautyFramebuffer = gl.createFramebuffer();
-		gl.bindFramebuffer(gl.FRAMEBUFFER, gl.beautyFramebuffer);
+		gl.bindFramebuffer( gl.FRAMEBUFFER, gl.beautyFramebuffer );
 
 		gl.beautyRenderbuffer = gl.createRenderbuffer();
 		gl.bindRenderbuffer(gl.RENDERBUFFER, gl.beautyRenderbuffer);
@@ -396,16 +374,31 @@ function PlanetDemo()
 	}
 
 	function initializeGl() {
+		function throwOnGLError(err, funcName, args) {
+			console.log( WebGLDebugUtils.glEnumToString(err) + " was caused by call to: " + funcName );
+		}
+		
+		webGlVersion = 2;
 		try {
-			gl = canvas.getContext('webgl'); //WebGLDebugUtils.makeDebugContext(canvas.getContext('webgl'));			// abrufen des Kontext für WebGL aus dem canvas
+			gl = canvas.getContext('webgl2'); 
 		}
 		catch (e) { }
-
-		// wenn Kontext nicht vorhanden dann webGL nicht unterstützt oder deaktiviert
+		
 		if (!gl) {
-			alert('webGL not activiated or supported');
-			return;
+			webGlVersion = 1;
+			try {
+				gl = canvas.getContext('webgl'); 
+			}
+			catch (e) { }
+			
+			if (!gl) {
+				webGlVersion = 0;
+				alert('webGL not activiated or supported');
+				return;
+			}
 		}
+		
+		gl = WebGLDebugUtils.makeDebugContext( gl, throwOnGLError );
 
 		textures = [ 
 			{
@@ -439,9 +432,18 @@ function PlanetDemo()
 		]
 		
 		geometry = [
-			NX_GEOMETRY.createArrow(),
-			NX_GEOMETRY.createBaseCube(),
-			NX_GEOMETRY.createIcosaeder( 1, 1, "sphere" )
+			{
+				model : NX_GEOMETRY.createIcosaeder( 1, 3, "Sphere" ),
+				offset: 0
+			},
+			{
+				model : NX_GEOMETRY.createBaseCube(),
+				offset: 0
+			},
+			{
+				model : NX_GEOMETRY.createArrow(),
+				offset: 0
+			}
 		]
 		
 		pipelines = [
@@ -481,7 +483,7 @@ function PlanetDemo()
 				{
 					status.innerHTML = '';
 				}
-				loadTextureSources();
+				loadTextureSources( gl );
 			}
 		}
 		
@@ -505,37 +507,45 @@ function PlanetDemo()
 		}
 	}
 	
-	function loadTextureSources() {
+	function initializeTextures() {
+		for( const texture of textures )
+		{
+			texture.texture = gl.createTexture();
+			gl.bindTexture( gl.TEXTURE_2D, texture.texture );
+			gl.pixelStorei( gl.UNPACK_FLIP_Y_WEBGL, true );
+			
+			gl.texImage2D( gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image );
+			
+			gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST );
+			gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST );
+			gl.generateMipmap( gl.TEXTURE_2D );
+			gl.bindTexture( gl.TEXTURE_2D, null );
+		}
+		render();
+	}
+	
+	function loadTextureSources( gl ) {
 		var textureCount = textures.length;
 		
-		for ( var textureIndex in textures ) {
-			var texture = textures[textureIndex];
+		function onLoad( event ) {
+			updateStatus( "Complete loading texture " + this.src + ".", this.src.replace( /^.*[\\\/]/, '' ) );
+			--textureCount;
+			if ( textureCount === 0 ) {
+				initializeTextures();
+			}
+		}
+		
+		function onError( event ) {
+			updateStatus( "Failed to load texture " + this.src + ". Please reload web page.", this.src.replace( /^.*[\\\/]/, '' ) );
+		}
+		
+		for ( let texture of textures ) {
 			texture.image = new Image();
 
-			appendStatus( "Loading texture " + texture.source + "...", texture.source );
+			appendStatus( "Loading texture " + texture.source + "...", texture.source.replace( /^.*[\\\/]/, '' ) );
 
-			texture.image.onerror = function( event ) {
-				updateStatus( "Failed to load texture " + this.src + ". Please reload web page.", this.src );
-			};
-
-			texture.image.onload = function( event ) {
-				updateStatus( "Complete loading texture " + this.src + ".", this.src );
-				texture.texture = gl.createTexture();
-				gl.bindTexture( gl.TEXTURE_2D, texture.texture );
-				gl.pixelStorei( gl.UNPACK_FLIP_Y_WEBGL, true );
-				
-				gl.texImage2D( gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this );
-				
-				gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST );
-				gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST );
-				gl.generateMipmap( gl.TEXTURE_2D );
-				gl.bindTexture( gl.TEXTURE_2D, null );
-				--textureCount;
-				if ( textureCount === 0 ) {
-					render();
-				}
-			};
-
+			texture.image.onerror = onError;
+			texture.image.onload = onLoad;
 			texture.image.src = texture.source;
 		}
 	}
@@ -569,69 +579,31 @@ function PlanetDemo()
 			gl.linkProgram( pipeline.program );
 			
 			pipeline.reflect( gl );
-			
-			alert( pipeline.uniforms.sun_position );
 		}
-	}
-	
-	function initShader(list) {
-		var len = list.length;
-		
-		for (var i = 0; i < list.length; i++) {
-			var name = list[i].name.toLowerCase() + "Program";
-
-			// erstellen der Shader-Objekte
-			var vShader = gl.createShader(gl.VERTEX_SHADER);
-			var fShader = gl.createShader(gl.FRAGMENT_SHADER);
-
-			// Programm-Objekte für die Shader
-			gl[name] = gl.createProgram();
-			gl.bindAttribLocation(gl[name], NX_POS_I, "aVertexPos");
-			gl.bindAttribLocation(gl[name], NX_UV_I, "aVertexUV");
-			gl.bindAttribLocation(gl[name], NX_NORM_I, "aVertexNorm");
-
-			// zuordnen des Quellcodes zu den Shader-Objekten
-			gl.shaderSource(vShader, list[i].v);
-			gl.shaderSource(fShader, list[i].f);
-
-			// kompilieren der Shader-Programme
-			gl.compileShader(vShader);
-			gl.compileShader(fShader);
-
-			console.log("v" + name + "Shader\n" + gl.getShaderInfoLog(vShader));
-			console.log("f" + name + "Shader\n" + gl.getShaderInfoLog(fShader));
-
-			// anhängen der Shaderprogramme an das Träger Programm
-			gl.attachShader(gl[name], vShader);
-			gl.attachShader(gl[name], fShader);
-
-			// das Trägerprogramm wird abschliessend gelinkt
-			gl.linkProgram(gl[name]);
-		}
-		return true;
 	}
 
 	function initializeBuffers() {
 
-		gl.vPosBuffer = gl.createBuffer();
-		gl.bindBuffer(gl.ARRAY_BUFFER, gl.vPosBuffer);
-		gl.bufferData(gl.ARRAY_BUFFER, sg.vBuffer, gl.STATIC_DRAW);
-
-		gl.vNormBuffer = gl.createBuffer();
-		gl.bindBuffer(gl.ARRAY_BUFFER, gl.vNormBuffer);
-		gl.bufferData(gl.ARRAY_BUFFER, sg.vBuffer, gl.STATIC_DRAW);
-
-		gl.vUVBuffer = gl.createBuffer();
-		gl.bindBuffer(gl.ARRAY_BUFFER, gl.vUVBuffer);
-		gl.bufferData(gl.ARRAY_BUFFER, sg.uvBuffer, gl.STATIC_DRAW);
-
-		gl.vPosScreenBuffer = gl.createBuffer();
-		gl.bindBuffer(gl.ARRAY_BUFFER, gl.vPosScreenBuffer);
-		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, 1, 0, -1, -1, 0, 1, 1, 0, 1, 1, 0, -1, -1, 0, 1, -1, 0]), gl.STATIC_DRAW);
-
-		gl.vUVScreenBuffer = gl.createBuffer();
-		gl.bindBuffer(gl.ARRAY_BUFFER, gl.vUVScreenBuffer);
-		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 0]), gl.STATIC_DRAW);
+		// count polys
+		let polycount = 0;
+		for( let geometryObject of geometry )
+		{
+			geometryObject.offset = polycount;
+			polycount += geometryObject.model.polycount;
+		}
+		
+		// collect vertieces
+		let localBuffer = new Float32Array( 24 * polycount );
+		let offset = 0;
+		for( var geometryObject of geometry )
+		{
+			offset = geometryObject.model.getVertexAttributes( localBuffer, offset );
+		}
+		
+		// setup device vertex buffer;
+		deviceVertexBuffer = gl.createBuffer();
+		gl.bindBuffer( gl.ARRAY_BUFFER, deviceVertexBuffer );
+		gl.bufferData( gl.ARRAY_BUFFER, localBuffer, gl.STATIC_DRAW );
 	}
 
 	function initUniform() {
@@ -857,152 +829,39 @@ function PlanetDemo()
 		return [t, r, s];
 	}
 
-	function collision(obj) {
+	function collision( obj ) {
 		var collPoint = false;
 		var old_abs = false;
 
 		var width = sg.cameras[sg.MAIN_CAMERA].width;
 		var height = sg.cameras[sg.MAIN_CAMERA].height;
 		var camMat = sg.cameras[sg.MAIN_CAMERA].ownMat;
-		var objPly = sg.oList[obj.leaf.geometryId].vertices;
+		var objPly = geometry[obj.leaf.geometryIndex].vertices;
 		var objMat = obj.ownMat;
 
 		var p0 = camMat.multiply(new Vec3(0, 0, 0));
 		var p1 = camMat.multiply(new Vec3(input.old_clientX / gl.bufferWidth * width - width / 2, -1 * (input.old_clientY / gl.bufferWidth * height - height / 2), -1 * sg.cameras[sg.MAIN_CAMERA].near)).sub(p0);
 
-		if (true) {
-			var pm = new Vec3(objMat[12], objMat[13], objMat[14]);
-			var p2 = p0.sub(pm);
-			var r = 6.403;
-			var a = p1[0] * p1[0] + p1[1] * p1[1] + p1[2] * p1[2];
-			var b = 2 * p2[0] * p1[0] + 2 * p2[1] * p1[1] + 2 * p2[2] * p1[2];
-			var c = p2[0] * p2[0] + p2[1] * p2[1] + p2[2] * p2[2] - r * r;
+		var pm = new Vec3(objMat[12], objMat[13], objMat[14]);
+		var p2 = p0.sub(pm);
+		var r = 6.403;
+		var a = p1[0] * p1[0] + p1[1] * p1[1] + p1[2] * p1[2];
+		var b = 2 * p2[0] * p1[0] + 2 * p2[1] * p1[1] + 2 * p2[2] * p1[2];
+		var c = p2[0] * p2[0] + p2[1] * p2[1] + p2[2] * p2[2] - r * r;
 
-			var root = Math.sqrt(b * b - 4 * a * c);
+		var root = Math.sqrt(b * b - 4 * a * c);
 
-			if (typeof (root) == "number") {
-				var t1 = (-b + root) / (2 * a);
-				var t2 = (-b - root) / (2 * a);
+		if (typeof (root) == "number") {
+			var t1 = (-b + root) / (2 * a);
+			var t2 = (-b - root) / (2 * a);
 
-				if (t1 < t2) {
-					collPoint = p0.add(p1.scalar(t1));
-				}
-				else {
-					collPoint = p0.add(p1.scalar(t2));
-				}
+			if (t1 < t2) {
+				collPoint = p0.add(p1.scalar(t1));
+			}
+			else {
+				collPoint = p0.add(p1.scalar(t2));
 			}
 		}
-		else //direkter Polygon-Klick-test für lowpoly Icosaeder !!!ungenau noch nicht ausgereift!!! 
-		{
-			var a = [3];
-			var b = [3];
-
-			var lvl = sg.oList[obj.leaf.geometryId].lvl;
-			var lastindex = false;
-			var count = (obj.ownPolycount * 9) / 20;
-
-			for (var i = 0; i < obj.ownPolycount * 9; i += count) {
-				var index = count / 4;
-				var p2 = objMat.multiply(new Vec3(objPly[i], objPly[i + 1], objPly[i + 2]).scalar(1));
-				var p3 = objMat.multiply(new Vec3(objPly[i + index], objPly[i + index + 1], objPly[i + index + 2]).scalar(1)).sub(p2);
-				var p4 = objMat.multiply(new Vec3(objPly[i + 2 * index], objPly[i + 2 * index + 1], objPly[i + 2 * index + 2]).scalar(1)).sub(p2);
-
-				a[0] = [-p1[0], p3[0], p4[0]];
-				a[1] = [-p1[1], p3[1], p4[1]];
-				a[2] = [-p1[2], p3[2], p4[2]];
-
-				b[0] = p2[0] - p2[0];
-				b[1] = p2[1] - p2[1];
-				b[2] = p2[2] - p2[2];
-
-				var r = gauß(a, b);
-
-				if ((r[1] + r[2] <= 1) && (r[1] >= 0) && (r[2] >= 0)) {
-					var pc = p0.add(p1.scalar(r[0]));
-					var abs = pc.sub(p0).abs();
-
-					if (old_abs > abs || !old_abs) {
-						old_abs = abs;
-						lastindex = i;
-					}
-				}
-			}
-
-			if (lastindex) {
-				var newindex = false;
-
-				for (l = 1; l < lvl; l++) {
-					count = (obj.ownPolycount * 9) / (20 * Math.pow(4, l));
-
-					for (var j = lastindex; j < (4 * count + lastindex); j += count) {
-						var index = count / 4;
-						var p2 = objMat.multiply(new Vec3(objPly[j], objPly[j + 1], objPly[j + 2]).scalar(1));
-						var p3 = objMat.multiply(new Vec3(objPly[j + index], objPly[j + index + 1], objPly[j + index + 2]).scalar(1)).sub(p2);
-						var p4 = objMat.multiply(new Vec3(objPly[j + 2 * index], objPly[j + 2 * index + 1], objPly[j + 2 * index + 2]).scalar(1)).sub(p2);
-
-						a[0] = [-p1[0], p3[0], p4[0]];
-						a[1] = [-p1[1], p3[1], p4[1]];
-						a[2] = [-p1[2], p3[2], p4[2]];
-
-						b[0] = p2[0] - p2[0];
-						b[1] = p2[1] - p2[1];
-						b[2] = p2[2] - p2[2];
-
-						var r = gauß(a, b);
-
-						if ((r[1] + r[2] <= 1) && (r[1] >= 0) && (r[2] >= 0)) {
-							var pc = p0.add(p1.scalar(r[0]));
-							var abs = pc.sub(p0).abs();
-
-							if (old_abs > abs || !old_abs) {
-								old_abs = abs;
-								newindex = j;
-							}
-						}
-					}
-
-					if (!newindex) {
-						lastindex = false;
-						break;
-					}
-					else {
-						lastindex = newindex;
-					}
-				}
-			}
-
-			if (lastindex) {
-				for (var i = lastindex; i < 9 * 4 + lastindex; i += 9) {
-					var p2 = new Vec3(objPly[i], objPly[i + 1], objPly[i + 2]);
-					var p3 = new Vec3(objPly[i + 3], objPly[i + 4], objPly[i + 5]);
-					var p4 = new Vec3(objPly[i + 6], objPly[i + 7], objPly[i + 8]);
-					p2 = objMat.multiply(p2);
-					p3 = objMat.multiply(p3).sub(p2);
-					p4 = objMat.multiply(p4).sub(p2);
-
-					a[0] = [-p1[0], p3[0], p4[0]];
-					a[1] = [-p1[1], p3[1], p4[1]];
-					a[2] = [-p1[2], p3[2], p4[2]];
-
-					b[0] = p2[0] - p2[0];
-					b[1] = p2[1] - p2[1];
-					b[2] = p2[2] - p2[2];
-
-					var r = gauß(a, b);
-
-					if ((r[1] + r[2] <= 1) && (r[1] >= 0) && (r[2] >= 0)) {
-						var pc = p0.add(p1.scalar(r[0]));
-						var abs = pc.sub(p0).abs();
-
-						if (old_abs > abs || !old_abs) {
-							old_abs = abs;
-							collPoint = pc;
-						}
-					}
-				}
-			}
-		}
-
 		return collPoint;
 	}
 
@@ -1040,7 +899,7 @@ function PlanetDemo()
 		if ( node.constructor === pNode && node.show ) {
 			
 			program.setUniformsPerLeaf(node.leaf);
-			gl.drawArrays( gl.TRIANGLES, index, 3 * node.ownPolycount );
+			
 			index += 3 * node.ownPolycount;
 		}
 
@@ -1064,7 +923,45 @@ function PlanetDemo()
 		}
 		return index;
 	}
-
+	
+	function bindPipeline( pipelineIndex ) {
+		var pipeline = pipelines[pipelineIndex];
+		switch( pipeline.identifier )
+		{
+			case "Earth":
+			{
+				//camera matrix, perspectiv matrix
+				pipeline.setUniformsPerFrame( gl, sg.cameras[sg.MAIN_CAMERA].ownMat.reverse(), createPerspMat( sg.cameras[sg.MAIN_CAMERA] ) );
+				break;
+			}
+			default:
+			{
+				pipeline.setUniformsPerFrame();
+				break;
+			}
+		}
+	}
+	
+	function drawObject( pipelineIndex, renderable ) {
+		var pipeline = pipelines[pipelineIndex];
+		switch( pipeline.identifier )
+		{
+			case "Earth":
+			{
+				//camera matrix, perspectiv matrix
+				pipeline.setUniformsPerObject( gl, renderable, textures );
+				break;
+			}
+			default:
+			{
+				pipeline.setUniformsPerFrame();
+				break;
+			}
+		}
+		const geometryObject = geometry[renderable.geometryIndex];
+		gl.drawArrays( gl.TRIANGLES, 3*geometryObject.offset, 3*geometryObject.model.polycount );
+	}
+	
 	function drawScene() {
 		// Lookup the size the browser is displaying the canvas.
 		var displayWidth = canvas.clientWidth;
@@ -1079,29 +976,44 @@ function PlanetDemo()
 		if (gl.bufferWidth != canvas.width || gl.bufferHeight != canvas.height) {
 			gl.bufferWidth = canvas.width;
 			gl.bufferHeight = canvas.height;
-			initFramebuffer(gl);
+			initializeFramebuffer();
 		}
-
+		
+		
 		sg.cameras[sg.MAIN_CAMERA].setRatio(canvas.width / canvas.height);
-		var renderables = sg.calcSceneTransformation();
-		/*
+		sg.calcSceneTransformation();
+		
+		var renderables = new Array();
+		sg.getRenderables( renderables );
+		
 		// Multipass rendering
 		gl.viewport(0, 0, canvas.width, canvas.height);
 
-		gl.bindBuffer(gl.ARRAY_BUFFER, gl.vPosBuffer);
-		gl.vertexAttribPointer(NX_POS_I, 3, gl.FLOAT, false, 0, 0);
-		gl.enableVertexAttribArray(NX_POS_I);
-
-		gl.bindBuffer(gl.ARRAY_BUFFER, gl.vUVBuffer);
-		gl.vertexAttribPointer(NX_UV_I, 2, gl.FLOAT, false, 0, 0);
-		gl.enableVertexAttribArray(NX_UV_I);
-
-		gl.bindBuffer(gl.ARRAY_BUFFER, gl.vNormBuffer);
-		gl.vertexAttribPointer(NX_NORM_I, 3, gl.FLOAT, false, 0, 0);
-		gl.enableVertexAttribArray(NX_NORM_I);
-
+		gl.bindBuffer( gl.ARRAY_BUFFER, deviceVertexBuffer );
+		gl.vertexAttribPointer( NX_VERTEX_BUFFER_LOCATION, 3, gl.FLOAT, false, 32, 0 );
+		gl.vertexAttribPointer( NX_NORMAL_BUFFER_LOCATION, 3, gl.FLOAT, false, 32, 12 );
+		gl.vertexAttribPointer( NX_UV_BUFFER_LOCATION, 2, gl.FLOAT, false, 32, 24 );
+		
+		gl.enableVertexAttribArray( NX_VERTEX_BUFFER_LOCATION );
+		gl.enableVertexAttribArray( NX_NORMAL_BUFFER_LOCATION );
+		gl.enableVertexAttribArray( NX_UV_BUFFER_LOCATION );
+		
+		var currentPipelineIndex = -1;
+		for( const renderable of renderables )
+		{
+			if( renderable.pipelineIndex != currentPipelineIndex )
+			{
+				currentPipelineIndex = renderable.pipelineIndex;
+				bindPipeline( currentPipelineIndex )
+			}
+			drawObject( currentPipelineIndex, renderable );
+		}
+		
+		/*
 		// Color-Pass
-
+		
+		gl.bindFramebuffer( gl.FRAMEBUFFER, null );
+		
 		gl.bindFramebuffer(gl.FRAMEBUFFER, gl.beautyFramebuffer);
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -1278,7 +1190,7 @@ function PlanetDemo()
 		}
 	}
 
-	function webGLStart(slist) {
+	function initializeInput() {
 		input = [];
 		input.ctrl = 1;
 		input.lon = 180;
@@ -1295,24 +1207,13 @@ function PlanetDemo()
 		canvas.onmousemove = MouseMove;
 		canvas.onmousedown = MouseDown;
 		canvas.onmouseup = MouseUp;
-
-		// erstellen der Textureliste (TODO aus Datei auslesen);
-
-		initShader(slist);
-
-		if( legend && legend.style )
-		{
-			legend.style.display = '';
-		}
 	}
 
 	function render() {
-		initializePipelines();
-		initScene();
-
+		initializeInput();
 		initializeBuffers();
-		initFramebuffer(gl);
-		//initUniform();
+		initializePipelines();
+		initializeScene();
 
 		sg.timer.multi = 10000;
 
@@ -1322,6 +1223,10 @@ function PlanetDemo()
 		gl.enable(gl.DEPTH_TEST);
 		gl.depthFunc(gl.LESS);
 
+		if( legend && legend.style )
+		{
+			legend.style.display = '';
+		}
 		tick();
 	}
 

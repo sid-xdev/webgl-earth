@@ -13,15 +13,8 @@
 		this.ownMat = new Mat4();
 		this.childMat = new Mat4();
 		this.childs = new Array();
-		this.parent = new function() 
-						{ 
-							this.change = function()
-							{ 
-								return false; 
-							} 
-						};
+		this.parent;
 		this.allPolycount = 0;
-		this.changed = true;
 	}
 
 	Node.prototype.transformation = function( mat )
@@ -29,21 +22,12 @@
 		return mat;
 	};
 
-	Node.prototype.change = function()
-	{
-		this.changed = true;
-		if( this.parent.change() ) return true;
-		return false;
-	};
-
 	Node.prototype.addChild = function( child )
 	{	
 		if( child instanceof Node )
 		{
 			this.childs.push( child );
-			child.changed = true;
 			child.parent = this;
-			this.change();
 			return this.childs.length-1;
 		}
 		return -1;
@@ -62,25 +46,20 @@
 		
 		return index;
 	}
-
-	Node.prototype.getPolyCounts = function( list )
+	
+	Node.prototype.getRenderables = function( buffer )
 	{
-		if( this.changed )
+		if( this.constructor === GeometryNode && this.show == true )
 		{
-			var pCount = 0;
-			var	len = this.childs.length;
-			
-			for( var i = 0; i < len; i++ )
-			{
-				pCount += this.childs[i].getPolyCounts( list );
-			}
-			
-			this.allPolycount = pCount;
-			this.changed = false;
+			buffer.push( this.leaf );
 		}
-		return this.allPolycount;
-	};
-
+		
+		for( var child of this.childs )
+		{
+			child.getRenderables( buffer );
+		}
+	}
+	
 	Node.prototype.calcTransformation = function( mat )
 	{
 		var buffer = new Array();
@@ -180,12 +159,12 @@
 	function Leaf( geometryIdx, pipelineIdx )
 	{
 		this.position = new Mat4()
-		this.pipelineIndex = geometryIdx;
-		this.geometryIndex = pipelineIdx;
+		this.pipelineIndex = pipelineIdx;
+		this.geometryIndex = geometryIdx;
 	}
 	
 	// Container-Node for a pLeaf
-	function pNode( name, leaf )
+	function GeometryNode( name, leaf )
 	{
 		Node.call( this, name );
 		
@@ -193,11 +172,11 @@
 		this.show = true;
 	}
 	
-	pNode.prototype = new Node();
+	GeometryNode.prototype = new Node();
 	
-	pNode.prototype.constructor = pNode;
+	GeometryNode.prototype.constructor = GeometryNode;
 	
-	pNode.prototype.calcTransformation = function( mat )
+	GeometryNode.prototype.calcTransformation = function( mat )
 	{
 		var buffer = new Array();
 		var newMat = this.transformation( mat );
@@ -292,14 +271,18 @@
 
 	Scenegraph.prototype.addGraph = function( gTopNode )
 	{
-		if( gTopNode instanceof Node && this.oList )
+		if( gTopNode instanceof Node )
 		{
 			this.sGraph = gTopNode;
 			gTopNode.parent = this;
-			this.change();
 			return true
 		}
 		return false;	
 	};
+	
+	Scenegraph.prototype.getRenderables = function( buffer )
+	{
+		this.sGraph.getRenderables( buffer );
+	}
 	
 	
