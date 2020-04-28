@@ -15,22 +15,14 @@ var NX_EARTH_PIPELINE = new function() {
 			perspectivMatrix: gl.getUniformLocation( this.program, "perspectiv_matrix" ),
 			cameraMatrix: gl.getUniformLocation( this.program, "camera_matrix" ),
 			worldMatrix: gl.getUniformLocation( this.program, "world_position_matrix" ),
-	/*
-			( TextureIds.day + "Sampler" ) : gl.getUniformLocation( this.program, "uTexDiffusSampler" ),
-			normal_sampler: gl.getUniformLocation( this.program, "uTexNormalSampler" ),
-			specular_sampler: gl.getUniformLocation( this.program, "uTexSpecularSampler" ),
-			night_side_sampler: gl.getUniformLocation( this.program, "uTexDarkSampler" ),
-			cloud_sampler: gl.getUniformLocation( this.program, "uTexDarkSampler" ),
-			*/
-			//sun_position: gl.getUniformLocation( this.program, "uSunPosition"),
-			//own_position: gl.getUniformLocation( this.program, "uSunColor"),
-			//impact_position: gl.getUniformLocation( this.program, "uImpactPosition"),
-			//impact_distance: gl.getUniformLocation( this.program, "uDamageRadius")
+			
+			lightDirection: gl.getUniformLocation( this.program, "light_direction" ),
+			cameraPosition: gl.getUniformLocation( this.program, "camera_position" )
 		}
 		
 		for( const textureId in this.TEXTURE_IDS )
 		{
-			this.uniforms[textureId+"Sampler"] = gl.getUniformLocation( this.program, textureId+"Sampler" );
+			this.uniforms[textureId+"_sampler"] = gl.getUniformLocation( this.program, textureId+"_sampler" );
 		}
 	};
 	
@@ -40,32 +32,31 @@ var NX_EARTH_PIPELINE = new function() {
 		gl.uniformMatrix4fv( this.uniforms.cameraMatrix, false, new Float32Array( cameraMatrix ) );
 		gl.uniformMatrix4fv( this.uniforms.perspectivMatrix, false, new Float32Array( perspectivMatrix ) );
 		
-		/*
 		for( const textureId in this.TEXTURE_IDS )
 		{
-			gl.uniform1i( this.uniforms[textureId+"Sampler"], TEXTURE_IDS[textureId] );
+			gl.uniform1i( this.uniforms[textureId+"_sampler"], this.TEXTURE_IDS[textureId] );
 		}
-		*/
 		
-		//gl.uniform1f(this.uni.dmgRadPointer, this.impactRadius);
-		//gl.uniform3fv(this.uni.sunPosPointer, new Float32Array([0, 0, 0]));
-		//gl.uniform3fv(this.uni.sunColorPointer, new Float32Array([1, 1, 1]));
-		//gl.uniform3fv(this.uni.inpPosPointer, new Float32Array(this.impactPoint)); 
+		gl.uniform3fv( this.uniforms.cameraPosition, new Float32Array( new Vec3( cameraMatrix[12], cameraMatrix[13], cameraMatrix[14] ) ) );
 	};
 		
-	this.setUniformsPerObject = function ( gl, object, textureList ) {
+	this.setUniformsPerObject = function ( 	gl, object, textureList, lightPosition ) {
 		
 		gl.uniformMatrix4fv( this.uniforms.worldMatrix, false, new Float32Array( object.position ));
+		gl.uniform3fv( this.uniforms.lightDirection, new Float32Array( new Vec3( object.position[12], object.position[13], object.position[14] ).sub( lightPosition ).norm() ) );
 		
 		for( const textureId in this.TEXTURE_IDS )
 		{
-			gl.activeTexture( gl["TEXTURE"+this.TEXTURE_IDS[textureId]] );
-			gl.bindTexture( gl.TEXTURE_2D, textureList[object[textureId]] );
+			if( textureList[object[textureId]].texture )
+			{
+				gl.activeTexture( gl["TEXTURE"+this.TEXTURE_IDS[textureId]] );
+				gl.bindTexture( gl.TEXTURE_2D, textureList[object[textureId]].texture );
+			}
 		}
 	};
 };
 
-function Earth( geometryIdx, pipelineIdx, dayTexture, nightTexture, heightTexture, waterTexture, cloudsTexture )
+function Earth( geometryIdx, pipelineIdx, dayTexture = 0, nightTexture = 0, heightTexture = 0, waterTexture = 0, cloudsTexture = 0 )
 {
 	Leaf.call( this, geometryIdx, pipelineIdx );
 	

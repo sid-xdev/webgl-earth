@@ -2,29 +2,57 @@
 
 precision mediump float;
 
-in vec3 position; 
-in vec3 normal;
+in vec3 tangent_position; 
+in vec3 tangent_light_direction;
+in vec3 tangent_camera_position;
+
 in vec2 uv;  
 
 out vec4 fragment_color;
-/*
-vec4 bump( float multi ,sampler2D sampler, vec2 uv )
+
+uniform sampler2D day_sampler;
+uniform sampler2D night_sampler;
+uniform sampler2D height_sampler;
+uniform sampler2D clouds_sampler;
+uniform sampler2D water_sampler;
+
+const vec2 offset_x = vec2( 0.000244, 0.0 );
+const vec2 offset_y = vec2( 0.0, 0.000488 );
+
+vec3 bump( float multi, sampler2D sampler, vec2 uv )
 {
-	vec2 size = vec2( 1.0/multi, 0.0 );
+    float delta_x = texture( sampler, uv + offset_x ).x - texture( sampler, uv - offset_x ).x;
+	float delta_y = texture( sampler, uv + offset_y ).x - texture( sampler, uv - offset_y ).x;
 	
-    vec4 center = texture( sampler, uv );
-    float s11 = center.x;
-    float s01 = texture( sampler, vec2( uv.x - 0.000244, uv.y ) ).x;
-    float s21 = texture( sampler, vec2( uv.x + 0.000244, uv.y ) ).x;
-    float s10 = texture( sampler, vec2( uv.x, uv.y - 0.000488 ) ).x;
-    float s12 = texture( sampler, vec2( uv.x, uv.y + 0.000488 ) ).x;
-    vec3 va = normalize( vec3( size.xy, s21 - s01 ) );
-    vec3 vb = normalize( vec3( size.yx, s12 - s10 ) );
-    return vec4( cross( va, vb ), s11 );
+	vec3 va = normalize( vec3( 1.0, 0.0, multi*delta_x ) );
+    vec3 vb = normalize( vec3( 0.0, 1.0, multi*delta_y ) );
+    return cross( va, vb );
 }
-*/
+
 void main()
 {	
-	vec3 tick = vec3( abs(normal.x),abs(normal.y), abs(normal.z) );
-	fragment_color = vec4( uv, 0.0,1.0 );
+	vec3 sight_direction = normalize( tangent_position - tangent_camera_position );
+	
+	vec3 normal_earth = bump( 1.0, height_sampler, uv );
+	vec3 normal_clouds = bump( 1.0, clouds_sampler, uv );
+	
+	float light_earth = max( 0.0, dot( normal_earth, -tangent_light_direction ) );
+	float light_clouds = max( 0.0, dot( normal_clouds, -tangent_light_direction ) );
+	
+	//day side
+	float reflection = pow( clamp( dot( reflect( tangent_light_direction, normal_earth ), -sight_direction ), 0.0, 1.0 ), 8.0 ) * texture( water_sampler, uv ).x;
+	vec3 day_color = ( 1.0-reflection ) * texture( day_sampler, uv ).xyz + reflection *vec3( 1.0, 0.95, 0.90 );
+	
+	//night side
+	vec3 night_color = texture( night_sampler, uv ).xyz;
+	
+	//cloud layer
+	float clouds = texture( clouds_sampler, uv ).x;
+	vec3 cloud_color = max( 0.05, light_clouds ) * vec3( 1.0 );
+	
+	//merge all
+	vec3 master_color = ( 1.0 - clamp( 5.0*light_earth, 0.0, 1.0 ) ) * night_color + max( light_earth, reflection) * day_color;
+	master_color = clouds * cloud_color + ( 1.0 - clouds ) * master_color;
+	
+	fragment_color = vec4( master_color , 1.0 );
 }

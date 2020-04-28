@@ -18,7 +18,8 @@ function PlanetDemo()
 
 	NX_VERTEX_BUFFER_LOCATION = 0;
 	NX_NORMAL_BUFFER_LOCATION = 1;
-	NX_UV_BUFFER_LOCATION = 2;
+	NX_TANGENT_BUFFER_LOCATION = 2;
+	NX_UV_BUFFER_LOCATION = 3;
 	
 
 	function createFrustumMat(left, right, bottom, top, near, far) {
@@ -171,7 +172,8 @@ function PlanetDemo()
 		};
 
 		var nEarth = new GeometryNode("Earth", //Nodename
-			new Earth( getGeomtryIndex( "Sphere" ), getPipelineIndex( "Earth" ) ) );
+			new Earth( getGeomtryIndex( "Sphere" ), getPipelineIndex( "Earth" ), 
+						getTextureIndex("earth_day"), getTextureIndex("earth_night"), getTextureIndex("earth_height"), getTextureIndex("earth_water"), getTextureIndex("earth_clouds"), ) );
 			
 		nEarth.transformation = function (mat) {
 			var rot = Mat4.rotate(31.717474, new Vec3(0, 0, 1));
@@ -402,7 +404,7 @@ function PlanetDemo()
 
 		textures = [ 
 			{
-				identifier : "night",
+				identifier : "earth_night",
 				source : "img/night.jpg",
 			},
 			{
@@ -410,7 +412,7 @@ function PlanetDemo()
 				source : "img/moon.jpg",
 			},
 			{
-				identifier : "earth",
+				identifier : "earth_day",
 				source : "img/world.jpg",
 			},
 			{
@@ -422,7 +424,7 @@ function PlanetDemo()
 				source : "img/spec.jpg",
 			},
 			{
-				identifier : "earth_cloud",
+				identifier : "earth_clouds",
 				source : "img/cloud.jpg",
 			},
 			{
@@ -516,8 +518,8 @@ function PlanetDemo()
 			
 			gl.texImage2D( gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image );
 			
-			gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST );
-			gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST );
+			gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR );
+			gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR );
 			gl.generateMipmap( gl.TEXTURE_2D );
 			gl.bindTexture( gl.TEXTURE_2D, null );
 		}
@@ -593,7 +595,7 @@ function PlanetDemo()
 		}
 		
 		// collect vertieces
-		let localBuffer = new Float32Array( 24 * polycount );
+		let localBuffer = new Float32Array( 33 * polycount );
 		let offset = 0;
 		for( var geometryObject of geometry )
 		{
@@ -869,13 +871,25 @@ function PlanetDemo()
 		var c = new Date();
 		sg.timer.setFrame();
 		drawScene();
+		
+		var m = sg.cameras[sg.MAIN_CAMERA].ownMat.reverse();
+		
 		if( status && status.innerHTML )
 		{
 			var end = c.getTime();
-			if (end - gl.timer > 1000) {
+			if ( end - gl.timer > 1000 ) {
 				status.innerHTML = "Polycount: " + sg.pCount
 					+ "<br>FpS: " + gl.fps
-					+ "<br>Zeitfaktor: " + sg.timer.multi + "x";
+					+ '<br>Zeitfaktor: '+ sg.timer.multi + 'x';
+					/*
+					+ '<table cellpadding="5" cellspacing="0">'+
+					+ '<tr><td align="left">Legend</td><td align="left"></td></tr>'
+					+	'<tr><td align="left">'+m[0]+'</td><td align="left">'+m[4]+'</td><td align="left">'+m[8]+'</td><td align="left">'+m[12]+'</td></tr>'
+					+	'<tr><td align="left">'+m[1]+'</td><td align="left">'+m[5]+'</td><td align="left">'+m[9]+'</td><td align="left">'+m[13]+'</td></tr>'
+					+	'<tr><td align="left">'+m[2]+'</td><td align="left">'+m[6]+'</td><td align="left">'+m[10]+'</td><td align="left">'+m[14]+'</td></tr>'
+					+	'<tr><td align="left">'+m[3]+'</td><td align="left">'+m[7]+'</td><td align="left">'+m[11]+'</td><td align="left">'+m[15]+'</td></tr>'
+					+'</table>';
+					*/
 				gl.timer = end;
 				gl.fps = 0;
 			}
@@ -931,7 +945,7 @@ function PlanetDemo()
 			case "Earth":
 			{
 				//camera matrix, perspectiv matrix
-				pipeline.setUniformsPerFrame( gl, sg.cameras[sg.MAIN_CAMERA].ownMat.reverse(), createPerspMat( sg.cameras[sg.MAIN_CAMERA] ) );
+				pipeline.setUniformsPerFrame( gl, sg.cameras[sg.MAIN_CAMERA].ownMat, createPerspMat( sg.cameras[sg.MAIN_CAMERA] ) );
 				break;
 			}
 			default:
@@ -949,7 +963,7 @@ function PlanetDemo()
 			case "Earth":
 			{
 				//camera matrix, perspectiv matrix
-				pipeline.setUniformsPerObject( gl, renderable, textures );
+				pipeline.setUniformsPerObject( gl, renderable, textures, new Vec3( sg.sGraph.ownMat[12], sg.sGraph.ownMat[13], sg.sGraph.ownMat[14] ) );
 				break;
 			}
 			default:
@@ -960,6 +974,7 @@ function PlanetDemo()
 		}
 		const geometryObject = geometry[renderable.geometryIndex];
 		gl.drawArrays( gl.TRIANGLES, 3*geometryObject.offset, 3*geometryObject.model.polycount );
+		sg.pCount = sg.pCount + geometryObject.model.polycount;
 	}
 	
 	function drawScene() {
@@ -985,17 +1000,20 @@ function PlanetDemo()
 		
 		var renderables = new Array();
 		sg.getRenderables( renderables );
+		sg.pCount = 0;
 		
 		// Multipass rendering
 		gl.viewport(0, 0, canvas.width, canvas.height);
 
 		gl.bindBuffer( gl.ARRAY_BUFFER, deviceVertexBuffer );
-		gl.vertexAttribPointer( NX_VERTEX_BUFFER_LOCATION, 3, gl.FLOAT, false, 32, 0 );
-		gl.vertexAttribPointer( NX_NORMAL_BUFFER_LOCATION, 3, gl.FLOAT, false, 32, 12 );
-		gl.vertexAttribPointer( NX_UV_BUFFER_LOCATION, 2, gl.FLOAT, false, 32, 24 );
+		gl.vertexAttribPointer( NX_VERTEX_BUFFER_LOCATION, 3, gl.FLOAT, false, 44, 0 );
+		gl.vertexAttribPointer( NX_NORMAL_BUFFER_LOCATION, 3, gl.FLOAT, false, 44, 12 );
+		gl.vertexAttribPointer( NX_TANGENT_BUFFER_LOCATION, 3, gl.FLOAT, false, 44, 24 );
+		gl.vertexAttribPointer( NX_UV_BUFFER_LOCATION, 2, gl.FLOAT, false, 44, 36 );
 		
 		gl.enableVertexAttribArray( NX_VERTEX_BUFFER_LOCATION );
 		gl.enableVertexAttribArray( NX_NORMAL_BUFFER_LOCATION );
+		gl.enableVertexAttribArray( NX_TANGENT_BUFFER_LOCATION );
 		gl.enableVertexAttribArray( NX_UV_BUFFER_LOCATION );
 		
 		var currentPipelineIndex = -1;
