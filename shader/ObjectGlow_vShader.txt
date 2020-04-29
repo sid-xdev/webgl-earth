@@ -1,0 +1,15 @@
+#version 300 es
+
+uniform mat4 perspectiv_matrix;
+uniform mat4 camera_matrix; 
+uniform mat4 world_position_matrix;
+
+layout(location = 0) in vec3 in_vertex; 
+layout(location = 1) in vec3 in_normal;
+layout(location = 2) in vec3 in_tangent;
+layout(location = 3) in vec2 in_uv;
+
+void main() 
+{ 
+	gl_Position = perspectiv_matrix * inverse(camera_matrix) * world_position_matrix * vec4( in_vertex, 1.0F );
+}

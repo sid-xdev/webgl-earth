@@ -3,7 +3,7 @@ function PlanetDemo()
 	var webGlVersion = 2;
 	
 	var gl;
-	var sg;
+	var sceneGraph;
 	var input;
 	
 	var canvas;
@@ -97,17 +97,11 @@ function PlanetDemo()
 	}
 	
 	function initializeScene() {
-		sg = new Scenegraph();
+		sceneGraph = new Scenegraph();
+		sceneGraph.impactPoint = new Vec3( 0.0, 1.0, 0.0 );
+		sceneGraph.impactProgress = 0;
 		
-		var nSun = new gNode("Sun" );/*, 	//Nodename 
-			new pLeaf(sphereGeometryIndex, // geometry-index
-				10, // colortex-index 
-				0, // uvmap-index 
-				10, // trensparent-index
-				0, // normal-index 
-				0, // spectular-index 
-				0, // reflection-index
-				10)); // glow-index*/
+		var nSun = new GeometryNode( "Sun", new Glow( getGeomtryIndex( "Sphere" ), getPipelineIndex( "ObjectGlow" ), new Array( 1.0, 1.0, 1.0, 1.0 ) ) );
 				
 		nSun.transformation = function (mat) {
 			this.ownMat = Mat4.scale(34.8175, 34.8175, 34.8175);
@@ -116,8 +110,8 @@ function PlanetDemo()
 		}
 
 
-		sg.cameras[sg.MAIN_CAMERA] = new cNode("Camera", 35, 1, 1, 10000);
-		sg.cameras[sg.MAIN_CAMERA].transformation = function (mat) {
+		sceneGraph.cameras[sceneGraph.MAIN_CAMERA] = new cNode("Camera", 35, 1, 1, 10000);
+		sceneGraph.cameras[sceneGraph.MAIN_CAMERA].transformation = function (mat) {
 			var pitch = Mat4.rotate(input.mY, new Vec3(1, 0, 0));
 			var yaw = Mat4.rotate(input.mX, new Vec3(0, 1, 0));
 			var rot = yaw.multiply(pitch);
@@ -133,7 +127,7 @@ function PlanetDemo()
 
 		var nEarthGroup = new gNode("EarthGroup");
 		nEarthGroup.transformation = function (mat) {
-			var time = sg.timer.gameTime;
+			var time = sceneGraph.timer.gameTime;
 			var w = 0.000000001140771161 * time;
 
 			w = w % 360
@@ -151,29 +145,9 @@ function PlanetDemo()
 			return this.childMat;
 		};
 
-		var nStars = new gNode("Stars");/*, //Nodename
-			new pLeaf( 
-					cubeGeometryIndex, //geometry-index
-				7, // colortex-index 
-				0, // uvmap-index 
-				10, // trensparent-index
-				0, // normal-index 
-				0, // spectular-index 
-				0, // reflection-index
-				0));// glow-index*/
-		nStars.transformation = function (mat) {
-			var trn = Mat4.translate(mat[12], mat[13], mat[14]);
-			var scl = Mat4.scale(8000, 8000, 8000)
-
-			this.ownMat = trn.multiply(scl);
-			this.childMat = trn;
-
-			return this.childMat;
-		};
-
 		var nEarth = new GeometryNode("Earth", //Nodename
 			new Earth( getGeomtryIndex( "Sphere" ), getPipelineIndex( "Earth" ), 
-						getTextureIndex("earth_day"), getTextureIndex("earth_night"), getTextureIndex("earth_height"), getTextureIndex("earth_water"), getTextureIndex("earth_clouds"), ) );
+						getTextureIndex("earth_day"), getTextureIndex("earth_night"), getTextureIndex("earth_alpha") ) );
 			
 		nEarth.transformation = function (mat) {
 			var rot = Mat4.rotate(31.717474, new Vec3(0, 0, 1));
@@ -188,7 +162,7 @@ function PlanetDemo()
 
 		var nMoon = new gNode( "Moon" );//, new pLeaf(sphereGeometryIndex, 2/*cTex*/, 0/*cUV*/, 10/*tTex*/, 0/*bTex*/, 0/*sTex*/, 0/*rTex*/));
 		nMoon.transformation = function (mat) {
-			var time = sg.timer.gameTime;
+			var time = sceneGraph.timer.gameTime;
 			var w = 0.0000000152502257 * time;
 			w %= 360;
 			var rot = Mat4.rotate(w, new Vec3(0, 1, 0));
@@ -211,14 +185,14 @@ function PlanetDemo()
 		nMark.click = false;
 		nMark.transformation = function (mat) {
 			var vec = false;
-			var time = sg.timer.gameTime;
+			var time = sceneGraph.timer.gameTime;
 
 			if (input.fire && !this.click || input.fire_mode) {
 				vec = collision(this.parent);
 
 				if (input.fire && vec) {
-					gl.earthProgram.impactPoint = vec;
-					gl.earthProgram.impactRadius = 0;
+					sceneGraph.impactPoint = vec;
+					sceneGraph.impactProgress = 0;
 					this.click = true;
 				}
 			}
@@ -229,11 +203,12 @@ function PlanetDemo()
 
 			if (this.click) {
 				if (!input.fire) {
-					gl.earthProgram.impactRadius = 0;
+					sceneGraph.impactProgress = 0;
 					this.click = false;
 				}
 				else {
-					gl.earthProgram.impactRadius += sg.timer.getDelta() / 1000 * 0.5;
+					sceneGraph.impactProgress += sceneGraph.timer.getDelta() / 1000 * 0.02;
+					sceneGraph.impactProgress = Math.min( Math.max( sceneGraph.impactProgress, 0.0 ), 1.0 );
 				}
 			}
 
@@ -254,14 +229,14 @@ function PlanetDemo()
 
 			return this.childMat;
 		}
-		/*
-		var markerT = new pLeaf(arrowGeomtryIndex, 10, 0, 10, 0, 0, 0, 10);
-		var markerR = new pLeaf(arrowGeomtryIndex, 10, 0, 10, 0, 0, 0, 10);
-		var markerL = new pLeaf(arrowGeomtryIndex, 10, 0, 10, 0, 0, 0, 10);
-		var markerB = new pLeaf(arrowGeomtryIndex, 10, 0, 10, 0, 0, 0, 10);
-		*/
 		
-		var nMarkTop = new gNode("MarkTop");//, markerT);
+		let arrowIndex = getGeomtryIndex( "Arrow" );
+		var markerT = new Glow( arrowIndex, getPipelineIndex( "ObjectGlow" ), new Array( 8.0, 0.0, 0.0, 1.0 ) );
+		var markerR = new Glow( arrowIndex, getPipelineIndex( "ObjectGlow" ), new Array( 8.0, 0.0, 0.0, 1.0 ) );
+		var markerL = new Glow( arrowIndex, getPipelineIndex( "ObjectGlow" ), new Array( 8.0, 0.0, 0.0, 1.0 ) );
+		var markerB = new Glow( arrowIndex, getPipelineIndex( "ObjectGlow" ), new Array( 8.0, 0.0, 0.0, 1.0 ) );
+		
+		var nMarkTop = new GeometryNode( "MarkTop", markerT );
 		nMarkTop.lightState = 0;
 		nMarkTop.transformation = function (mat) {
 			this.ownMat = mat.multiply(Mat4.rotate(-90, new Vec3(0, 1, 0)).multiply(Mat4.translate(this.parent.move, 0, 0).multiply(Mat4.scale(1 / 2, 0.25 / 4, 0.5 / 2))));
@@ -270,7 +245,7 @@ function PlanetDemo()
 			return this.childMat;
 		}
 
-		var nMarkLeft = new gNode( "MarkLeft" );//, markerL);
+		var nMarkLeft = new GeometryNode( "MarkLeft", markerL );
 		nMarkLeft.lightState = 0;
 		nMarkLeft.transformation = function (mat) {
 			this.ownMat = mat.multiply(Mat4.rotate(180, new Vec3(0, 1, 0)).multiply(Mat4.translate(this.parent.move, 0, 0).multiply(Mat4.scale(1 / 2, 0.25 / 4, 0.5 / 2))));
@@ -279,7 +254,7 @@ function PlanetDemo()
 			return this.childMat;
 		}
 
-		var nMarkRight = new gNode( "MarkRight" );//, markerR);
+		var nMarkRight = new GeometryNode( "MarkRight", markerR );
 		nMarkRight.lightState = 0;
 		nMarkRight.transformation = function (mat) {
 			this.ownMat = mat.multiply(Mat4.rotate(0, new Vec3(0, 1, 0)).multiply(Mat4.translate(this.parent.move, 0, 0).multiply(Mat4.scale(1 / 2, 0.25 / 4, 0.5 / 2))));
@@ -288,7 +263,7 @@ function PlanetDemo()
 			return this.childMat;
 		}
 
-		var nMarkBottom = new gNode( "MarkBottom" );//, markerB);
+		var nMarkBottom = new GeometryNode( "MarkBottom", markerB );
 		nMarkBottom.lightState = 0;
 		nMarkBottom.transformation = function (mat) {
 			this.ownMat = mat.multiply(Mat4.rotate(90, new Vec3(0, 1, 0)).multiply(Mat4.translate(this.parent.move, 0, 0).multiply(Mat4.scale(1 / 2, 0.25 / 4, 0.5 / 2))));
@@ -303,11 +278,10 @@ function PlanetDemo()
 		nMark.addChild(nMarkRight);
 		nMark.addChild(nMarkBottom);
 		nEarthGroup.addChild(nEarth);
-		nEarthGroup.addChild(nStars);
-		nEarthGroup.addChild(sg.cameras[sg.MAIN_CAMERA]);
+		nEarthGroup.addChild(sceneGraph.cameras[sceneGraph.MAIN_CAMERA]);
 		nEarthGroup.addChild(nMoon);
 		nSun.addChild(nEarthGroup);
-		sg.addGraph(nSun);
+		sceneGraph.addGraph(nSun);
 	}
 
 	function initializeFramebuffer() {
@@ -330,46 +304,6 @@ function PlanetDemo()
 		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, gl.beautyPass, 0);
 		gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, gl.beautyRenderbuffer);
 
-		gl.glowFramebuffer = new Array(2);
-		gl.glowPass = new Array(2);
-		gl.glowRenderbuffer = new Array(2);
-
-		gl.glowFramebuffer[0] = gl.createFramebuffer();
-		gl.bindFramebuffer(gl.FRAMEBUFFER, gl.glowFramebuffer[0]);
-
-		gl.glowRenderbuffer[0] = gl.createRenderbuffer();
-		gl.bindRenderbuffer(gl.RENDERBUFFER, gl.glowRenderbuffer[0]);
-		gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, gl.bufferWidth, gl.bufferHeight);
-
-		gl.glowPass[0] = gl.createTexture();
-		gl.bindTexture(gl.TEXTURE_2D, gl.glowPass[0]);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.bufferWidth, gl.bufferHeight, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-
-		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, gl.glowPass[0], 0);
-		gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, gl.glowRenderbuffer[0]);
-
-		gl.glowFramebuffer[1] = gl.createFramebuffer();
-		gl.bindFramebuffer(gl.FRAMEBUFFER, gl.glowFramebuffer[1]);
-
-		gl.glowRenderbuffer[1] = gl.createRenderbuffer();
-		gl.bindRenderbuffer(gl.RENDERBUFFER, gl.glowRenderbuffer[1]);
-		gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, gl.bufferWidth, gl.bufferHeight);
-
-		gl.glowPass[1] = gl.createTexture();
-		gl.bindTexture(gl.TEXTURE_2D, gl.glowPass[1]);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.bufferWidth, gl.bufferHeight, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-
-		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, gl.glowPass[1], 0);
-		gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, gl.glowRenderbuffer[1]);
-
 		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 		gl.bindRenderbuffer(gl.RENDERBUFFER, null);
 		gl.bindTexture(gl.TEXTURE_2D, null);
@@ -387,6 +321,10 @@ function PlanetDemo()
 		catch (e) { }
 		
 		if (!gl) {
+			alert('WebGL 2.0 not activiated or supported in this browser!');
+			return;
+			
+			/*
 			webGlVersion = 1;
 			try {
 				gl = canvas.getContext('webgl'); 
@@ -398,6 +336,7 @@ function PlanetDemo()
 				alert('webGL not activiated or supported');
 				return;
 			}
+			*/
 		}
 		
 		gl = WebGLDebugUtils.makeDebugContext( gl, throwOnGLError );
@@ -416,21 +355,9 @@ function PlanetDemo()
 				source : "img/world.jpg",
 			},
 			{
-				identifier : "earth_height",
-				source : "img/bump.jpg",
+				identifier : "earth_alpha",
+				source : "img/earth_alpha.png",
 			},
-			{
-				identifier : "earth_water",
-				source : "img/spec.jpg",
-			},
-			{
-				identifier : "earth_clouds",
-				source : "img/cloud.jpg",
-			},
-			{
-				identifier : "stars",
-				source : "img/stars.jpg",
-			}
 		]
 		
 		geometry = [
@@ -449,7 +376,8 @@ function PlanetDemo()
 		]
 		
 		pipelines = [
-			NX_EARTH_PIPELINE
+			NX_EARTH_PIPELINE,
+			NX_SIMPLE_GLOW_PIPELINE
 		];
 		
 		loadShaderSources();
@@ -608,177 +536,6 @@ function PlanetDemo()
 		gl.bufferData( gl.ARRAY_BUFFER, localBuffer, gl.STATIC_DRAW );
 	}
 
-	function initUniform() {
-		gl.earthProgram.impactPoint = new Vec3(0, 0, 0);
-		gl.earthProgram.impactRadius = 0;
-
-		gl.earthProgram.uni =
-		{
-			perMatPointer: gl.getUniformLocation(gl.earthProgram, "uPerspMat"),
-			camMatPointer: gl.getUniformLocation(gl.earthProgram, "uCameraMat"),
-			posMatPointer: gl.getUniformLocation(gl.earthProgram, "uModelMat"),
-
-			diffTexSampler: gl.getUniformLocation(gl.earthProgram, "uTexDiffusSampler"),
-			tranTexSampler: gl.getUniformLocation(gl.earthProgram, "uTexTransparentSampler"),
-			normTexSampler: gl.getUniformLocation(gl.earthProgram, "uTexNormalSampler"),
-			specTexSampler: gl.getUniformLocation(gl.earthProgram, "uTexSpecularSampler"),
-			darkTexSampler: gl.getUniformLocation(gl.earthProgram, "uTexDarkSampler"),
-			glowTexSampler: gl.getUniformLocation(gl.earthProgram, "uTexGlowSampler"),
-			burnTexSampler: gl.getUniformLocation(gl.earthProgram, "uTexBurnSampler"),
-			ruinTexSampler: gl.getUniformLocation(gl.earthProgram, "uTexRuinSampler"),
-
-			lightStatePointer: gl.getUniformLocation(gl.earthProgram, "uLightState"),
-			glowStatePointer: gl.getUniformLocation(gl.earthProgram, "uGlowState"),
-			glowColorPointer: gl.getUniformLocation(gl.earthProgram, "uGlowColor"),
-
-			sunPosPointer: gl.getUniformLocation(gl.earthProgram, "uSunPosition"),
-			sunColorPointer: gl.getUniformLocation(gl.earthProgram, "uSunColor"),
-			inpPosPointer: gl.getUniformLocation(gl.earthProgram, "uImpactPosition"),
-			dmgRadPointer: gl.getUniformLocation(gl.earthProgram, "uDamageRadius")
-		};
-
-		gl.earthProgram.setUniformsPerFrame = function () {
-			gl.useProgram(this);
-
-			gl.uniformMatrix4fv(this.uni.camMatPointer, false, new Float32Array(sg.cameras[sg.MAIN_CAMERA].ownMat));
-			gl.uniformMatrix4fv(this.uni.perMatPointer, false, new Float32Array(createPerspMat(sg.cameras[sg.MAIN_CAMERA])));
-
-			gl.uniform1i(this.uni.diffTexSampler, 0);
-			gl.uniform1i(this.uni.tranTexSampler, 1);
-			gl.uniform1i(this.uni.normTexSampler, 2);
-			gl.uniform1i(this.uni.specTexSampler, 3);
-			gl.uniform1i(this.uni.darkTexSampler, 4);
-			gl.uniform1i(this.uni.glowTexSampler, 5);
-			gl.uniform1i(this.uni.burnTexSampler, 6);
-			gl.uniform1i(this.uni.ruinTexSampler, 7);
-
-			gl.uniform1f(this.uni.dmgRadPointer, this.impactRadius);
-			gl.uniform3fv(this.uni.sunPosPointer, new Float32Array([0, 0, 0]));
-			gl.uniform3fv(this.uni.sunColorPointer, new Float32Array([1, 1, 1]));
-			gl.uniform3fv(this.uni.inpPosPointer, new Float32Array(this.impactPoint));
-		};
-
-		gl.earthProgram.setUniformsPerLeaf = function (leaf) {
-			gl.uniformMatrix4fv(this.uni.posMatPointer, false, new Float32Array(leaf.posMat));
-
-			gl.activeTexture(gl.TEXTURE0);
-			gl.bindTexture(gl.TEXTURE_2D, gl.texList[leaf.diffuse]);
-
-			gl.activeTexture(gl.TEXTURE1);
-			gl.bindTexture(gl.TEXTURE_2D, gl.texList[leaf.transparent]);
-
-			gl.activeTexture(gl.TEXTURE2);
-			gl.bindTexture(gl.TEXTURE_2D, gl.texList[leaf.normal]);
-
-			gl.activeTexture(gl.TEXTURE3);
-			gl.bindTexture(gl.TEXTURE_2D, gl.texList[leaf.specular]);
-
-			gl.activeTexture(gl.TEXTURE4);
-			gl.bindTexture(gl.TEXTURE_2D, gl.texList[leaf.reflection]);
-
-			gl.activeTexture(gl.TEXTURE5);
-			gl.bindTexture(gl.TEXTURE_2D, gl.texList[leaf.glow]);
-
-			// gl.activeTexture( gl.TEXTURE6 );
-			// gl.bindTexture( gl.TEXTURE_2D, gl.texList[leaf.burn] );
-			// gl.uniform2fv( this.uni.reflOffsetPointer, new Float32Array( leaf.reflection_offset ) );
-
-			// gl.activeTexture( gl.TEXTURE7 );
-			// gl.bindTexture( gl.TEXTURE_2D, gl.texList[leaf.ruin] );
-			// gl.uniform2fv( this.uni.reflOffsetPointer, new Float32Array( leaf.reflection_offset ) );
-		};
-
-		gl.colorProgram.uni =
-		{
-			perMatPointer: gl.getUniformLocation(gl.colorProgram, "uPerspMat"),
-			camMatPointer: gl.getUniformLocation(gl.colorProgram, "uCameraMat"),
-			posMatPointer: gl.getUniformLocation(gl.colorProgram, "uModelMat"),
-
-			diffTexSampler: gl.getUniformLocation(gl.colorProgram, "uTexDiffusSampler"),
-			tranTexSampler: gl.getUniformLocation(gl.colorProgram, "uTexTransparentSampler"),
-			normTexSampler: gl.getUniformLocation(gl.colorProgram, "uTexNormalSampler"),
-			specTexSampler: gl.getUniformLocation(gl.colorProgram, "uTexSpecularSampler"),
-			reflTexSampler: gl.getUniformLocation(gl.colorProgram, "uTexReflectionSampler"),
-			glowTexSampler: gl.getUniformLocation(gl.colorProgram, "uTexGlowSampler"),
-
-			diffOffsetPointer: gl.getUniformLocation(gl.colorProgram, "uTexDiffusOffset"),
-			tranOffsetPointer: gl.getUniformLocation(gl.colorProgram, "uTexTransparentOffset"),
-			normOffsetPointer: gl.getUniformLocation(gl.colorProgram, "uTexNormalOffset"),
-			specOffsetPointer: gl.getUniformLocation(gl.colorProgram, "uTexSpecularOffset"),
-			reflOffsetPointer: gl.getUniformLocation(gl.colorProgram, "uTexReflectionOffset"),
-
-			lightStatePointer: gl.getUniformLocation(gl.colorProgram, "uLightState"),
-			glowStatePointer: gl.getUniformLocation(gl.colorProgram, "uGlowState"),
-			glowColorPointer: gl.getUniformLocation(gl.colorProgram, "uGlowColor"),
-
-			lightCountPointer: gl.getUniformLocation(gl.colorProgram, "uLightCount"),
-			lightColorPointer: gl.getUniformLocation(gl.colorProgram, "uLightColor"),
-			lightPosPointer: gl.getUniformLocation(gl.colorProgram, "uLightPosition"),
-
-			amblightColorPointer: gl.getUniformLocation(gl.colorProgram, "uAmbLightColor")
-		};
-		/*
-		gl.colorProgram.setUniformsPerFrame = function () {
-			gl.useProgram(this);
-
-			gl.uniformMatrix4fv(this.uni.camMatPointer, false, new Float32Array(sg.cameras[sg.MAIN_CAMERA].ownMat));
-			gl.uniformMatrix4fv(this.uni.perMatPointer, false, new Float32Array(createPerspMat(sg.cameras[sg.MAIN_CAMERA])));
-
-			gl.uniform1i(this.uni.diffTexSampler, 0);
-			gl.uniform1i(this.uni.tranTexSampler, 1);
-			gl.uniform1i(this.uni.normTexSampler, 2);
-			gl.uniform1i(this.uni.specTexSampler, 3);
-			gl.uniform1i(this.uni.reflTexSampler, 4);
-			gl.uniform1i(this.uni.glowTexSampler, 5);
-
-			gl.uniform1i(this.uni.lightCountPointer, 1);
-
-			gl.uniform3fv(this.uni.lightPosPointer, new Float32Array([0, 0, 0]));
-			gl.uniform3fv(this.uni.lightColorPointer, new Float32Array([0.95, 0.95, 0.95]));
-			gl.uniform3fv(this.uni.amblightColorPointer, new Float32Array([0.05, 0.05, 0.05]));
-		};
-
-		gl.colorProgram.setUniformsPerLeaf = function (leaf) {
-			gl.uniformMatrix4fv(this.uni.posMatPointer, false, new Float32Array(leaf.posMat));
-
-			gl.activeTexture(gl.TEXTURE0);
-			gl.bindTexture(gl.TEXTURE_2D, gl.texList[leaf.diffuse]);
-			gl.uniform2fv(this.uni.diffOffsetPointer, new Float32Array(leaf.diffuse_offset));
-
-			gl.activeTexture(gl.TEXTURE1);
-			gl.bindTexture(gl.TEXTURE_2D, gl.texList[leaf.transparent]);
-			gl.uniform2fv(this.uni.tranOffsetPointer, new Float32Array(leaf.transparent_offset));
-
-			gl.activeTexture(gl.TEXTURE2);
-			gl.bindTexture(gl.TEXTURE_2D, gl.texList[leaf.normal]);
-			gl.uniform2fv(this.uni.normOffsetPointer, new Float32Array(leaf.normal_offset));
-
-			gl.activeTexture(gl.TEXTURE3);
-			gl.bindTexture(gl.TEXTURE_2D, gl.texList[leaf.specular]);
-			gl.uniform2fv(this.uni.specOffsetPointer, new Float32Array(leaf.specular_offset));
-
-			gl.activeTexture(gl.TEXTURE4);
-			gl.bindTexture(gl.TEXTURE_2D, gl.texList[leaf.reflection]);
-			gl.uniform2fv(this.uni.reflOffsetPointer, new Float32Array(leaf.reflection_offset));
-
-			gl.activeTexture(gl.TEXTURE5);
-			gl.bindTexture(gl.TEXTURE_2D, gl.texList[leaf.glow]);
-		};
-
-		gl.blurProgram.uni =
-		{
-			blurSamplerPointer: gl.getUniformLocation(gl.blurProgram, "uBlurLayerSampler"),
-			resPointer: gl.getUniformLocation(gl.blurProgram, "uResolution")
-		};
-
-		gl.compProgram.uni =
-		{
-			colorSamplerPointer: gl.getUniformLocation(gl.compProgram, "uBeautyLayerSampler"),
-			glowSamplerPointer: gl.getUniformLocation(gl.compProgram, "uGlowLayerSampler")
-		};
-		*/
-	}
-
 	function gauß(a, b) {
 		var pivot = 0;
 		var index = 0;
@@ -835,14 +592,14 @@ function PlanetDemo()
 		var collPoint = false;
 		var old_abs = false;
 
-		var width = sg.cameras[sg.MAIN_CAMERA].width;
-		var height = sg.cameras[sg.MAIN_CAMERA].height;
-		var camMat = sg.cameras[sg.MAIN_CAMERA].ownMat;
+		var width = sceneGraph.cameras[sceneGraph.MAIN_CAMERA].width;
+		var height = sceneGraph.cameras[sceneGraph.MAIN_CAMERA].height;
+		var camMat = sceneGraph.cameras[sceneGraph.MAIN_CAMERA].ownMat;
 		var objPly = geometry[obj.leaf.geometryIndex].vertices;
 		var objMat = obj.ownMat;
 
 		var p0 = camMat.multiply(new Vec3(0, 0, 0));
-		var p1 = camMat.multiply(new Vec3(input.old_clientX / gl.bufferWidth * width - width / 2, -1 * (input.old_clientY / gl.bufferWidth * height - height / 2), -1 * sg.cameras[sg.MAIN_CAMERA].near)).sub(p0);
+		var p1 = camMat.multiply(new Vec3(input.old_clientX / gl.bufferWidth * width - width / 2, -1 * (input.old_clientY / gl.bufferHeight * height - height / 2), -1 * sceneGraph.cameras[sceneGraph.MAIN_CAMERA].near)).sub(p0);
 
 		var pm = new Vec3(objMat[12], objMat[13], objMat[14]);
 		var p2 = p0.sub(pm);
@@ -869,18 +626,18 @@ function PlanetDemo()
 
 	function tick() {
 		var c = new Date();
-		sg.timer.setFrame();
+		sceneGraph.timer.setFrame();
 		drawScene();
 		
-		var m = sg.cameras[sg.MAIN_CAMERA].ownMat.reverse();
+		var m = sceneGraph.cameras[sceneGraph.MAIN_CAMERA].ownMat.reverse();
 		
 		if( status && status.innerHTML )
 		{
 			var end = c.getTime();
 			if ( end - gl.timer > 1000 ) {
-				status.innerHTML = "Polycount: " + sg.pCount
+				status.innerHTML = "Polycount: " + sceneGraph.pCount
 					+ "<br>FpS: " + gl.fps
-					+ '<br>Zeitfaktor: '+ sg.timer.multi + 'x';
+					+ '<br>Zeitfaktor: '+ sceneGraph.timer.multi + 'x';
 					/*
 					+ '<table cellpadding="5" cellspacing="0">'+
 					+ '<tr><td align="left">Legend</td><td align="left"></td></tr>'
@@ -897,55 +654,16 @@ function PlanetDemo()
 		}
 		requestAnimationFrame(tick);
 	}
-
-	function drawPerObject(node, index, glow, program) {
-		var len = node.childs.length;
-
-		if ( node.constructor === gNode && node.type == "program" ) {
-			program = gl[node.name];
-			program.setUniformsPerFrame();
-		}
-
-		for (var i = 0; i < len; i++) {
-			index = drawPerObject(node.childs[i], index, glow, program);
-		}
-
-		if ( node.constructor === pNode && node.show ) {
-			
-			program.setUniformsPerLeaf(node.leaf);
-			
-			index += 3 * node.ownPolycount;
-		}
-
-		return index;
-	}
-
-	function drawGlowPerObject(node, index) {
-		var len = node.childs.length;
-		for (var i = 0; i < len; i++) {
-			index = drawGlowPerObject(node.childs[i], index);
-		}
-
-		if (node.constructor === pNode) {
-			gl.uniformMatrix4fv(gl.colorProgram.uni.posMatPointer, false, new Float32Array(node.leaf.posMat));
-
-			gl.activeTexture(gl.TEXTURE0);
-			gl.bindTexture(gl.TEXTURE_2D, gl.texList[node.leaf.glow]);
-
-			gl.drawArrays(gl.TRIANGLES, index, 3 * node.ownPolycount);
-			index += 3 * node.ownPolycount;
-		}
-		return index;
-	}
 	
 	function bindPipeline( pipelineIndex ) {
 		var pipeline = pipelines[pipelineIndex];
 		switch( pipeline.identifier )
 		{
+			case "ObjectGlow":
 			case "Earth":
 			{
 				//camera matrix, perspectiv matrix
-				pipeline.setUniformsPerFrame( gl, sg.cameras[sg.MAIN_CAMERA].ownMat, createPerspMat( sg.cameras[sg.MAIN_CAMERA] ) );
+				pipeline.setUniformsPerFrame( gl, sceneGraph.cameras[sceneGraph.MAIN_CAMERA].ownMat, createPerspMat( sceneGraph.cameras[sceneGraph.MAIN_CAMERA] ) );
 				break;
 			}
 			default:
@@ -960,21 +678,25 @@ function PlanetDemo()
 		var pipeline = pipelines[pipelineIndex];
 		switch( pipeline.identifier )
 		{
+			case "ObjectGlow":
+			{
+				pipeline.setUniformsPerObject( gl, renderable );
+			}
 			case "Earth":
 			{
-				//camera matrix, perspectiv matrix
-				pipeline.setUniformsPerObject( gl, renderable, textures, new Vec3( sg.sGraph.ownMat[12], sg.sGraph.ownMat[13], sg.sGraph.ownMat[14] ) );
+				let sunPosition = new Vec3( sceneGraph.sGraph.ownMat[12], sceneGraph.sGraph.ownMat[13], sceneGraph.sGraph.ownMat[14] );
+				pipeline.setUniformsPerObject( gl, renderable, textures, sunPosition, sceneGraph.impactPoint, sceneGraph.impactProgress );
 				break;
 			}
 			default:
 			{
-				pipeline.setUniformsPerFrame();
+				console.log( 'unkown pipeline: "' + pipeline.identifier + '"!' );
 				break;
 			}
 		}
 		const geometryObject = geometry[renderable.geometryIndex];
 		gl.drawArrays( gl.TRIANGLES, 3*geometryObject.offset, 3*geometryObject.model.polycount );
-		sg.pCount = sg.pCount + geometryObject.model.polycount;
+		sceneGraph.pCount = sceneGraph.pCount + geometryObject.model.polycount;
 	}
 	
 	function drawScene() {
@@ -995,12 +717,12 @@ function PlanetDemo()
 		}
 		
 		
-		sg.cameras[sg.MAIN_CAMERA].setRatio(canvas.width / canvas.height);
-		sg.calcSceneTransformation();
+		sceneGraph.cameras[sceneGraph.MAIN_CAMERA].setRatio(canvas.width / canvas.height);
+		sceneGraph.calcSceneTransformation();
 		
 		var renderables = new Array();
-		sg.getRenderables( renderables );
-		sg.pCount = 0;
+		sceneGraph.getRenderables( renderables );
+		sceneGraph.pCount = 0;
 		
 		// Multipass rendering
 		gl.viewport(0, 0, canvas.width, canvas.height);
@@ -1035,13 +757,13 @@ function PlanetDemo()
 		gl.bindFramebuffer(gl.FRAMEBUFFER, gl.beautyFramebuffer);
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-		//drawPerObject(sg.t.sGraph, 0, 0);
+		//drawPerObject(sceneGraph.t.sGraph, 0, 0);
 
 		// Glow-Pass
 		gl.bindFramebuffer(gl.FRAMEBUFFER, gl.glowFramebuffer[0]);
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-		//drawPerObject(sg.t.sGraph, 0, 1);
+		//drawPerObject(sceneGraph.t.sGraph, 0, 1);
 
 		gl.disable(gl.BLEND);
 
@@ -1138,19 +860,19 @@ function PlanetDemo()
 				input.fire = false;
 				input.down = false;
 				input.fire_mode = false;
-				sg.timer.multi = 10000;
+				sceneGraph.timer.multi = 10000;
 
 				event.preventDefault();
 				break;
 
 			case 107:
-				sg.timer.multi += 10000;
+				sceneGraph.timer.multi += 10000;
 				event.preventDefault();
 				break;
 
 			case 109:
-				sg.timer.multi -= 10000;
-				if (sg.timer.multi < 1) sg.timer.multi = 1;
+				sceneGraph.timer.multi -= 10000;
+				if (sceneGraph.timer.multi < 1) sceneGraph.timer.multi = 1;
 				event.preventDefault();
 				break;
 
@@ -1158,7 +880,7 @@ function PlanetDemo()
 				if (!input.fire) {
 					input.fire_mode = !input.fire_mode
 					if (input.fire_mode) {
-						sg.timer.multi = 1;
+						sceneGraph.timer.multi = 1;
 					}
 				}
 				event.preventDefault();
@@ -1233,7 +955,7 @@ function PlanetDemo()
 		initializePipelines();
 		initializeScene();
 
-		sg.timer.multi = 10000;
+		sceneGraph.timer.multi = 10000;
 
 		gl.timer = new Date().getTime();
 		gl.fps = 0;

@@ -2,9 +2,7 @@ var NX_EARTH_PIPELINE = new function() {
 	this.TEXTURE_IDS = {
 		day : 0,
 		night : 1,
-		clouds : 2,
-		water : 3,
-		height : 4
+		alpha : 2,
 	};
 	this.identifier = "Earth";
 	this.vertexSource = '';
@@ -17,7 +15,9 @@ var NX_EARTH_PIPELINE = new function() {
 			worldMatrix: gl.getUniformLocation( this.program, "world_position_matrix" ),
 			
 			lightDirection: gl.getUniformLocation( this.program, "light_direction" ),
-			cameraPosition: gl.getUniformLocation( this.program, "camera_position" )
+			earthCenter: gl.getUniformLocation( this.program, "earth_center" ),
+			impactVector: gl.getUniformLocation( this.program, "impact_vector" ),
+			destructionProgress: gl.getUniformLocation( this.program, "destruction_progress" ),
 		}
 		
 		for( const textureId in this.TEXTURE_IDS )
@@ -36,14 +36,18 @@ var NX_EARTH_PIPELINE = new function() {
 		{
 			gl.uniform1i( this.uniforms[textureId+"_sampler"], this.TEXTURE_IDS[textureId] );
 		}
-		
-		gl.uniform3fv( this.uniforms.cameraPosition, new Float32Array( new Vec3( cameraMatrix[12], cameraMatrix[13], cameraMatrix[14] ) ) );
 	};
 		
-	this.setUniformsPerObject = function ( 	gl, object, textureList, lightPosition ) {
+	this.setUniformsPerObject = function ( 	gl, object, textureList, lightPosition, impactPosition, destructionProgress ) {
 		
 		gl.uniformMatrix4fv( this.uniforms.worldMatrix, false, new Float32Array( object.position ));
-		gl.uniform3fv( this.uniforms.lightDirection, new Float32Array( new Vec3( object.position[12], object.position[13], object.position[14] ).sub( lightPosition ).norm() ) );
+		
+		let worldPosition = new Vec3( object.position[12], object.position[13], object.position[14] );
+		
+		gl.uniform3fv( this.uniforms.lightDirection, new Float32Array( worldPosition.sub( lightPosition ).norm() ) );
+		gl.uniform3fv( this.uniforms.earthCenter, new Float32Array( worldPosition ) );
+		gl.uniform3fv( this.uniforms.impactVector, new Float32Array( impactPosition.sub( worldPosition ).norm() ) );
+		gl.uniform1f( this.uniforms.destructionProgress, destructionProgress );
 		
 		for( const textureId in this.TEXTURE_IDS )
 		{
@@ -56,19 +60,56 @@ var NX_EARTH_PIPELINE = new function() {
 	};
 };
 
-function Earth( geometryIdx, pipelineIdx, dayTexture = 0, nightTexture = 0, heightTexture = 0, waterTexture = 0, cloudsTexture = 0 )
+var NX_SIMPLE_GLOW_PIPELINE = new function() {
+	this.identifier = "ObjectGlow";
+	this.vertexSource = '';
+	this.fragmentSource = '';
+	this.reflect = function( gl ) {
+		this.uniforms = {
+			
+			perspectivMatrix: gl.getUniformLocation( this.program, "perspectiv_matrix" ),
+			cameraMatrix: gl.getUniformLocation( this.program, "camera_matrix" ),
+			worldMatrix: gl.getUniformLocation( this.program, "world_position_matrix" ),
+			
+			lightColor: gl.getUniformLocation( this.program, "light_color" ),
+		}
+	};
+	
+	this.setUniformsPerFrame = function ( gl, cameraMatrix, perspectivMatrix ) {
+		gl.useProgram( this.program );
+
+		gl.uniformMatrix4fv( this.uniforms.cameraMatrix, false, new Float32Array( cameraMatrix ) );
+		gl.uniformMatrix4fv( this.uniforms.perspectivMatrix, false, new Float32Array( perspectivMatrix ) );
+	};
+		
+	this.setUniformsPerObject = function ( 	gl, object ) {
+		
+		gl.uniformMatrix4fv( this.uniforms.worldMatrix, false, new Float32Array( object.position ) );
+		gl.uniform4fv( this.uniforms.lightColor, new Float32Array( object.lightColor ) );
+	};
+}
+
+function Earth( geometryIdx, pipelineIdx, dayTexture = 0, nightTexture = 0, alphaTexture = 0 )
 {
 	Leaf.call( this, geometryIdx, pipelineIdx );
 	
 	this.day = dayTexture;
 	this.night = nightTexture;
-	this.clouds = cloudsTexture;
-	this.water = waterTexture;
-	this.height = heightTexture;
+	this.alpha = alphaTexture;
 };
 
 Earth.prototype = new Leaf();
 Earth.prototype.constructor = Earth;
+
+function Glow( geometryIdx, pipelineIdx, lightColor )
+{
+	Leaf.call( this, geometryIdx, pipelineIdx );
+	
+	this.lightColor = lightColor;
+};
+
+Glow.prototype = new Leaf();
+Glow.prototype.constructor = Earth;
 
 
 

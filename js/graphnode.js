@@ -283,6 +283,10 @@
 	Scenegraph.prototype.getRenderables = function( buffer )
 	{
 		this.sGraph.getRenderables( buffer );
+		buffer.sort( ( first, second ) => 
+		{
+			return first.pipelineIndex > first.pipelineIndex;
+		} );
 	}
 	
 	

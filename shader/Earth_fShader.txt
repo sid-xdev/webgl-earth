@@ -1,7 +1,10 @@
 #version 300 es
 
+#define M_PI 3.1415926535897932384626433832795
+
 precision mediump float;
 
+in vec3 world_position;
 in vec3 tangent_position; 
 in vec3 tangent_light_direction;
 in vec3 tangent_camera_position;
@@ -12,47 +15,70 @@ out vec4 fragment_color;
 
 uniform sampler2D day_sampler;
 uniform sampler2D night_sampler;
-uniform sampler2D height_sampler;
-uniform sampler2D clouds_sampler;
-uniform sampler2D water_sampler;
+uniform sampler2D alpha_sampler;
+
+uniform vec3 earth_center;
+uniform vec3 impact_vector;
+uniform float destruction_progress;
+
 
 const vec2 offset_x = vec2( 0.000244, 0.0 );
 const vec2 offset_y = vec2( 0.0, 0.000488 );
 
-vec3 bump( float multi, sampler2D sampler, vec2 uv )
+mat3 bump( float multi, sampler2D sampler, vec2 uv )
 {
-    float delta_x = texture( sampler, uv + offset_x ).x - texture( sampler, uv - offset_x ).x;
-	float delta_y = texture( sampler, uv + offset_y ).x - texture( sampler, uv - offset_y ).x;
+	vec3 delta_x = texture( sampler, uv + offset_x ).xyz - texture( sampler, uv - offset_x ).xyz;
+	vec3 delta_y = texture( sampler, uv + offset_y ).xyz - texture( sampler, uv - offset_y ).xyz;
 	
-	vec3 va = normalize( vec3( 1.0, 0.0, multi*delta_x ) );
-    vec3 vb = normalize( vec3( 0.0, 1.0, multi*delta_y ) );
-    return cross( va, vb );
+    return mat3( 
+		cross( normalize( vec3( 1.0, 0.0, 2.0*multi*delta_x.x ) ) , normalize( vec3( 0.0, 1.0, 2.0*multi*delta_y.x ) ) ),
+		cross( normalize( vec3( 1.0, 0.0, multi*delta_x.y ) ) , normalize( vec3( 0.0, 1.0, multi*delta_y.y ) ) ),
+		cross( normalize( vec3( 1.0, 0.0, multi*delta_x.z ) ) , normalize( vec3( 0.0, 1.0, multi*delta_y.z ) ) ) );
 }
+
+const uint BURN   = 0U;
+const uint CLOUDS = 1U;
+const uint WATER  = 2U;
 
 void main()
 {	
+	vec3 current_vector = normalize( world_position - earth_center );
+	float current_progress = acos( dot( current_vector, impact_vector ) )/M_PI;
+	
+	float cloud_progress = clamp( ( current_progress - destruction_progress ) / 0.3 + ( 1.0 - destruction_progress ), 0.0, 1.0 );
+	float earth_progress = float( !bool( cloud_progress ) );
+	
 	vec3 sight_direction = normalize( tangent_position - tangent_camera_position );
 	
-	vec3 normal_earth = bump( 1.0, height_sampler, uv );
-	vec3 normal_clouds = bump( 1.0, clouds_sampler, uv );
+	vec3 alphas = texture( alpha_sampler, uv ).xyz;
+	mat3 normals = bump( 1.0, alpha_sampler, uv );
+	normals[WATER] = alphas[WATER] * vec3( 0.0, 0.0, 1.0 ) + ( 1.0-alphas[WATER] ) * normals[BURN];
 	
-	float light_earth = max( 0.0, dot( normal_earth, -tangent_light_direction ) );
-	float light_clouds = max( 0.0, dot( normal_clouds, -tangent_light_direction ) );
+	float light_earth  = max( 0.0, dot( normals[WATER], -tangent_light_direction ) );
+	float light_burn   = max( 0.0, dot( normals[BURN], -tangent_light_direction ) );
+	float light_clouds = max( 0.0, dot( normals[CLOUDS], -tangent_light_direction ) );
+	
+	vec3 earth_color = texture( day_sampler, uv ).xyz;
 	
 	//day side
-	float reflection = pow( clamp( dot( reflect( tangent_light_direction, normal_earth ), -sight_direction ), 0.0, 1.0 ), 8.0 ) * texture( water_sampler, uv ).x;
-	vec3 day_color = ( 1.0-reflection ) * texture( day_sampler, uv ).xyz + reflection *vec3( 1.0, 0.95, 0.90 );
+	float earth_reflection = pow( clamp( dot( reflect( tangent_light_direction, normals[WATER] ), -sight_direction ), 0.0, 1.0 ), 8.0 ) * alphas[WATER];
+	vec3 day_color = ( 1.0-earth_reflection ) * earth_color + earth_reflection * vec3( 1.0, 0.95, 0.90 ) ;
+	
+	//burn
+	float burn_reflection = pow( clamp( dot( reflect( tangent_light_direction, normals[BURN] ), -sight_direction ), 0.0, 1.0 ), 32.0 );
+	vec3 burn_color = max( 0.05, light_burn ) * pow( 1.0 - alphas[BURN], 2.0 ) * vec3( 0.5, 0.4, 0.35 ) + burn_reflection *vec3( 1.0 );
 	
 	//night side
 	vec3 night_color = texture( night_sampler, uv ).xyz;
 	
 	//cloud layer
-	float clouds = texture( clouds_sampler, uv ).x;
+	float clouds = cloud_progress * alphas[CLOUDS];
 	vec3 cloud_color = max( 0.05, light_clouds ) * vec3( 1.0 );
 	
 	//merge all
-	vec3 master_color = ( 1.0 - clamp( 5.0*light_earth, 0.0, 1.0 ) ) * night_color + max( light_earth, reflection) * day_color;
+	vec3 master_color = ( 1.0 - clamp( 5.0*light_earth, 0.0, 1.0 ) ) * night_color + max( light_earth, earth_reflection ) * day_color;
 	master_color = clouds * cloud_color + ( 1.0 - clouds ) * master_color;
 	
-	fragment_color = vec4( master_color , 1.0 );
+	fragment_color = vec4( earth_progress * burn_color + ( 1.0-earth_progress ) * master_color, 1.0 );
+	//fragment_color = vec4( burn_color, 1.0 );
 }
