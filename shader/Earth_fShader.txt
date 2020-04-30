@@ -45,8 +45,10 @@ void main()
 	vec3 current_vector = normalize( world_position - earth_center );
 	float current_progress = acos( dot( current_vector, impact_vector ) )/M_PI;
 	
-	float cloud_progress = clamp( ( current_progress - destruction_progress ) / 0.3 + ( 1.0 - destruction_progress ), 0.0, 1.0 );
-	float earth_progress = float( !bool( cloud_progress ) );
+	float cloud_progress = min( 1.0, 2.3 * destruction_progress );
+	cloud_progress = clamp( ( current_progress - cloud_progress ) / 0.1 + ( 1.0 - cloud_progress ), 0.0, 1.0 );
+	float fire_progress = clamp( ( current_progress - destruction_progress ) / 0.015 + ( 1.0 - destruction_progress ), 0.0, 1.0 );
+	float earth_progress = float( fire_progress < 0.5 );
 	
 	vec3 sight_direction = normalize( tangent_position - tangent_camera_position );
 	
@@ -55,30 +57,35 @@ void main()
 	normals[WATER] = alphas[WATER] * vec3( 0.0, 0.0, 1.0 ) + ( 1.0-alphas[WATER] ) * normals[BURN];
 	
 	float light_earth  = max( 0.0, dot( normals[WATER], -tangent_light_direction ) );
-	float light_burn   = max( 0.0, dot( normals[BURN], -tangent_light_direction ) );
-	float light_clouds = max( 0.0, dot( normals[CLOUDS], -tangent_light_direction ) );
-	
-	vec3 earth_color = texture( day_sampler, uv ).xyz;
-	
-	//day side
-	float earth_reflection = pow( clamp( dot( reflect( tangent_light_direction, normals[WATER] ), -sight_direction ), 0.0, 1.0 ), 8.0 ) * alphas[WATER];
-	vec3 day_color = ( 1.0-earth_reflection ) * earth_color + earth_reflection * vec3( 1.0, 0.95, 0.90 ) ;
+	float light_burn   = max( 0.05, dot( normals[BURN], -tangent_light_direction ) );
+	float light_clouds = max( 0.05, dot( normals[CLOUDS], -tangent_light_direction ) );
 	
 	//burn
 	float burn_reflection = pow( clamp( dot( reflect( tangent_light_direction, normals[BURN] ), -sight_direction ), 0.0, 1.0 ), 32.0 );
 	vec3 burn_color = max( 0.05, light_burn ) * pow( 1.0 - alphas[BURN], 2.0 ) * vec3( 0.5, 0.4, 0.35 ) + burn_reflection *vec3( 1.0 );
+	
+	
+	fire_progress = 1.0 - abs( 2.0*( fire_progress - 0.5 ) );
+	fire_progress *= fire_progress;
+	vec3 fire_color = vec3( 1.0, 0.25, 0.05 );
+	
+	burn_color = ( 1.0 - fire_progress ) * burn_color + fire_progress * fire_color;
+	
+	//day side
+	vec3 earth_color = texture( day_sampler, uv ).xyz + fire_progress * fire_color;
+	float earth_reflection = pow( clamp( dot( reflect( tangent_light_direction, normals[WATER] ), -sight_direction ), 0.0, 1.0 ), 8.0 ) * alphas[WATER];
+	vec3 day_color = ( 1.0-earth_reflection ) * earth_color + earth_reflection * vec3( 1.0, 0.95, 0.90 ) ;
 	
 	//night side
 	vec3 night_color = texture( night_sampler, uv ).xyz;
 	
 	//cloud layer
 	float clouds = cloud_progress * alphas[CLOUDS];
-	vec3 cloud_color = max( 0.05, light_clouds ) * vec3( 1.0 );
+	vec3 cloud_color = light_clouds * vec3( 1.0 );
 	
 	//merge all
 	vec3 master_color = ( 1.0 - clamp( 5.0*light_earth, 0.0, 1.0 ) ) * night_color + max( light_earth, earth_reflection ) * day_color;
 	master_color = clouds * cloud_color + ( 1.0 - clouds ) * master_color;
 	
-	fragment_color = vec4( earth_progress * burn_color + ( 1.0-earth_progress ) * master_color, 1.0 );
-	//fragment_color = vec4( burn_color, 1.0 );
+	fragment_color = vec4( earth_progress * burn_color + ( 1.0-earth_progress ) * ( ( 1.0 - fire_progress ) * master_color + fire_progress * fire_color ), earth_reflection );
 }

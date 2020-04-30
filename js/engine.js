@@ -160,7 +160,7 @@ function PlanetDemo()
 			return this.childMat;
 		};
 
-		var nMoon = new gNode( "Moon" );//, new pLeaf(sphereGeometryIndex, 2/*cTex*/, 0/*cUV*/, 10/*tTex*/, 0/*bTex*/, 0/*sTex*/, 0/*rTex*/));
+		var nMoon = new GeometryNode( "Moon", new Moon( getGeomtryIndex( "Sphere" ), getPipelineIndex( "Moon" ), getTextureIndex("moon") ) );
 		nMoon.transformation = function (mat) {
 			var time = sceneGraph.timer.gameTime;
 			var w = 0.0000000152502257 * time;
@@ -290,23 +290,24 @@ function PlanetDemo()
 		gl.bindFramebuffer( gl.FRAMEBUFFER, gl.beautyFramebuffer );
 
 		gl.beautyRenderbuffer = gl.createRenderbuffer();
-		gl.bindRenderbuffer(gl.RENDERBUFFER, gl.beautyRenderbuffer);
-		gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, gl.bufferWidth, gl.bufferHeight);
+		gl.bindRenderbuffer( gl.RENDERBUFFER, gl.beautyRenderbuffer );
+		gl.renderbufferStorage( gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, gl.bufferWidth, gl.bufferHeight );
 
 		gl.beautyPass = gl.createTexture();
-		gl.bindTexture(gl.TEXTURE_2D, gl.beautyPass);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+		gl.bindTexture( gl.TEXTURE_2D, gl.beautyPass );
+		
+		gl.texImage2D( gl.TEXTURE_2D, 0, gl.RGBA, gl.bufferWidth, gl.bufferHeight, 0, gl.RGBA, gl.UNSIGNED_BYTE, null );
+		
+		gl.generateMipmap( gl.TEXTURE_2D );
+		
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR );
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR );
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.bufferWidth, gl.bufferHeight, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-
-		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, gl.beautyPass, 0);
-		gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, gl.beautyRenderbuffer);
-
-		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-		gl.bindRenderbuffer(gl.RENDERBUFFER, null);
-		gl.bindTexture(gl.TEXTURE_2D, null);
+		
+		
+		gl.framebufferTexture2D( gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, gl.beautyPass, 0 );
+		gl.framebufferRenderbuffer( gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, gl.beautyRenderbuffer );
 	}
 
 	function initializeGl() {
@@ -377,7 +378,9 @@ function PlanetDemo()
 		
 		pipelines = [
 			NX_EARTH_PIPELINE,
-			NX_SIMPLE_GLOW_PIPELINE
+			NX_MOON_PIPELINE,
+			NX_SIMPLE_GLOW_PIPELINE,
+			NX_FULLSCREEN_PIPELINE
 		];
 		
 		loadShaderSources();
@@ -656,22 +659,8 @@ function PlanetDemo()
 	}
 	
 	function bindPipeline( pipelineIndex ) {
-		var pipeline = pipelines[pipelineIndex];
-		switch( pipeline.identifier )
-		{
-			case "ObjectGlow":
-			case "Earth":
-			{
-				//camera matrix, perspectiv matrix
-				pipeline.setUniformsPerFrame( gl, sceneGraph.cameras[sceneGraph.MAIN_CAMERA].ownMat, createPerspMat( sceneGraph.cameras[sceneGraph.MAIN_CAMERA] ) );
-				break;
-			}
-			default:
-			{
-				pipeline.setUniformsPerFrame();
-				break;
-			}
-		}
+		let pipeline = pipelines[pipelineIndex];
+		pipeline.setUniformsPerFrame( gl, sceneGraph.cameras[sceneGraph.MAIN_CAMERA].ownMat, createPerspMat( sceneGraph.cameras[sceneGraph.MAIN_CAMERA] ) );
 	}
 	
 	function drawObject( pipelineIndex, renderable ) {
@@ -681,6 +670,13 @@ function PlanetDemo()
 			case "ObjectGlow":
 			{
 				pipeline.setUniformsPerObject( gl, renderable );
+				break;
+			}
+			case "Moon":
+			{
+				let sunPosition = new Vec3( sceneGraph.sGraph.ownMat[12], sceneGraph.sGraph.ownMat[13], sceneGraph.sGraph.ownMat[14] );
+				pipeline.setUniformsPerObject( gl, renderable, textures, sunPosition );
+				break;
 			}
 			case "Earth":
 			{
@@ -713,9 +709,8 @@ function PlanetDemo()
 		if (gl.bufferWidth != canvas.width || gl.bufferHeight != canvas.height) {
 			gl.bufferWidth = canvas.width;
 			gl.bufferHeight = canvas.height;
-			initializeFramebuffer();
+			//initializeFramebuffer();
 		}
-		
 		
 		sceneGraph.cameras[sceneGraph.MAIN_CAMERA].setRatio(canvas.width / canvas.height);
 		sceneGraph.calcSceneTransformation();
@@ -724,7 +719,11 @@ function PlanetDemo()
 		sceneGraph.getRenderables( renderables );
 		sceneGraph.pCount = 0;
 		
-		// Multipass rendering
+		// beauty render pass
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null );
+		//gl.bindFramebuffer(gl.FRAMEBUFFER, gl.beautyFramebuffer );
+		gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT );
+		
 		gl.viewport(0, 0, canvas.width, canvas.height);
 
 		gl.bindBuffer( gl.ARRAY_BUFFER, deviceVertexBuffer );
@@ -749,65 +748,21 @@ function PlanetDemo()
 			drawObject( currentPipelineIndex, renderable );
 		}
 		
+		// post redner pass( glow )
 		/*
-		// Color-Pass
+		let postPipeline = pipelines[3]
 		
 		gl.bindFramebuffer( gl.FRAMEBUFFER, null );
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 		
-		gl.bindFramebuffer(gl.FRAMEBUFFER, gl.beautyFramebuffer);
-		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-		//drawPerObject(sceneGraph.t.sGraph, 0, 0);
-
-		// Glow-Pass
-		gl.bindFramebuffer(gl.FRAMEBUFFER, gl.glowFramebuffer[0]);
-		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-		//drawPerObject(sceneGraph.t.sGraph, 0, 1);
-
-		gl.disable(gl.BLEND);
-
-		// Blur Glow-Pass
-		var i = 0;
-
-		gl.useProgram(gl.blurProgram);
-
-		gl.uniform1i(gl.blurProgram.uni.blurSamplerPointer, 0);
-		gl.uniform2fv(gl.blurProgram.uni.resPointer, new Float32Array([gl.bufferWidth, gl.bufferHeight]));
-
-		gl.bindBuffer(gl.ARRAY_BUFFER, gl.vPosScreenBuffer);
-		gl.vertexAttribPointer(NX_POS_I, 3, gl.FLOAT, false, 0, 0);
-
-		gl.bindBuffer(gl.ARRAY_BUFFER, gl.vUVScreenBuffer);
-		gl.vertexAttribPointer(NX_UV_I, 2, gl.FLOAT, false, 0, 0);
-
-
-		for (i = 0; i < 20; i++) {
-			gl.bindFramebuffer(gl.FRAMEBUFFER, gl.glowFramebuffer[(i + 1) % 2]);
-			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-			gl.activeTexture(gl.TEXTURE0);
-			gl.bindTexture(gl.TEXTURE_2D, gl.glowPass[i % 2]);
-
-			gl.drawArrays(gl.TRIANGLES, 0, 6);
-		}
-
-		// Composite-Program
-		gl.useProgram(gl.compProgram);
-		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-
-		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-		gl.uniform1i(gl.compProgram.uni.colorSamplerPointer, 0);
-		gl.uniform1i(gl.compProgram.uni.glowSamplerPointer, 1);
-
-		gl.activeTexture(gl.TEXTURE0);
-		gl.bindTexture(gl.TEXTURE_2D, gl.beautyPass);
-
-		gl.activeTexture(gl.TEXTURE1);
-		gl.bindTexture(gl.TEXTURE_2D, gl.glowPass[0]);
-
-		gl.drawArrays(gl.TRIANGLES, 0, 6);
+		gl.useProgram( postPipeline.program );
+		
+		gl.uniform1i( postPipeline.uniforms.screenSampler, 0 );
+		gl.uniform2fv( postPipeline.uniforms.screenSize, new Float32Array([gl.bufferWidth, gl.bufferHeight]));
+		
+		gl.activeTexture( gl.TEXTURE0 );
+		gl.bindTexture( gl.TEXTURE_2D, gl.beautyPass );
+		gl.drawArrays( gl.TRIANGLES, 0, 3 );
 		*/
 	}
 

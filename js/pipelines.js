@@ -89,6 +89,56 @@ var NX_SIMPLE_GLOW_PIPELINE = new function() {
 	};
 }
 
+var NX_MOON_PIPELINE = new function() {
+	this.identifier = "Moon";
+	this.vertexSource = '';
+	this.fragmentSource = '';
+	this.reflect = function( gl ) {
+		this.uniforms = {
+			
+			perspectivMatrix: gl.getUniformLocation( this.program, "perspectiv_matrix" ),
+			cameraMatrix: gl.getUniformLocation( this.program, "camera_matrix" ),
+			worldMatrix: gl.getUniformLocation( this.program, "world_position_matrix" ),
+			
+			lightDirection: gl.getUniformLocation( this.program, "light_direction" ),
+			moonSampler: gl.getUniformLocation( this.program, "moon_sampler" )
+		}
+	};
+	
+	this.setUniformsPerFrame = function ( gl, cameraMatrix, perspectivMatrix ) {
+		gl.useProgram( this.program );
+
+		gl.uniformMatrix4fv( this.uniforms.cameraMatrix, false, new Float32Array( cameraMatrix ) );
+		gl.uniformMatrix4fv( this.uniforms.perspectivMatrix, false, new Float32Array( perspectivMatrix ) );
+		
+		gl.uniform1i( this.uniforms.moonSampler, 0 );
+	};
+		
+	this.setUniformsPerObject = function ( gl, object, textureList, lightPosition ) {
+		
+		let worldPosition = new Vec3( object.position[12], object.position[13], object.position[14] );
+		
+		gl.uniformMatrix4fv( this.uniforms.worldMatrix, false, new Float32Array( object.position ) );
+		gl.uniform3fv( this.uniforms.lightDirection, new Float32Array( worldPosition.sub( lightPosition ).norm() ) );
+		
+		gl.activeTexture( gl.TEXTURE0 );
+		gl.bindTexture( gl.TEXTURE_2D, textureList[object.color].texture );
+	};
+}
+
+var NX_FULLSCREEN_PIPELINE = new function() {
+	this.identifier = "Fullscreen";
+	this.vertexSource = '';
+	this.fragmentSource = '';
+	this.reflect = function( gl ) {
+		this.uniforms = {
+			
+			screenSize : gl.getUniformLocation( this.program, "screen_size" ),
+			screenSampler : gl.getUniformLocation( this.program, "screen_sampler" )
+		}
+	};
+}
+
 function Earth( geometryIdx, pipelineIdx, dayTexture = 0, nightTexture = 0, alphaTexture = 0 )
 {
 	Leaf.call( this, geometryIdx, pipelineIdx );
@@ -101,6 +151,16 @@ function Earth( geometryIdx, pipelineIdx, dayTexture = 0, nightTexture = 0, alph
 Earth.prototype = new Leaf();
 Earth.prototype.constructor = Earth;
 
+function Moon( geometryIdx, pipelineIdx, moonTexture = 0 )
+{
+	Leaf.call( this, geometryIdx, pipelineIdx );
+	
+	this.color = moonTexture;
+};
+
+Moon.prototype = new Leaf();
+Moon.prototype.constructor = Moon;
+
 function Glow( geometryIdx, pipelineIdx, lightColor )
 {
 	Leaf.call( this, geometryIdx, pipelineIdx );
@@ -109,7 +169,7 @@ function Glow( geometryIdx, pipelineIdx, lightColor )
 };
 
 Glow.prototype = new Leaf();
-Glow.prototype.constructor = Earth;
+Glow.prototype.constructor = Glow;
 
 
 
