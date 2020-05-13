@@ -63,7 +63,7 @@ Vec2.prototype = new Array(2);
 
 Vec2.prototype.constructor = Vec2;
 
-Vec2.prototype.count = 3;
+Vec2.prototype.count = 2;
 
 Vec2.prototype.scalar = function ( p )
 {
@@ -94,6 +94,11 @@ Vec2.prototype.copy = function( buffer, offset )
 {
 	buffer[offset + 0] = this[0];
 	buffer[offset + 1] = this[1];
+};
+
+Vec2.prototype.abs = function ()
+{
+	return Math.sqrt( this[0]*this[0] + this[1]*this[1] );
 };
 
 function Mat4( mat )

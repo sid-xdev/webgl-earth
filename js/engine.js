@@ -96,6 +96,27 @@ function PlanetDemo()
 		return -1;
 	}
 	
+	// https://stackoverflow.com/questions/4817029/whats-the-best-way-to-detect-a-touch-screen-device-using-javascript/4819886#4819886
+	function isTouchDevice() 
+	{
+		var prefixes = ' -webkit- -moz- -o- -ms- '.split(' ');
+    
+		var mq = function (query) 
+		{
+			return window.matchMedia(query).matches;
+		}
+
+		if (('ontouchstart' in window) || window.DocumentTouch && document instanceof DocumentTouch)
+		{
+			return true;
+		}
+
+		// include the 'heartz' as a way to have a non matching MQ to help terminate the join
+		// https://git.io/vznFH
+		var query = ['(', prefixes.join('touch-enabled),('), 'heartz', ')'].join('');
+		return mq(query);
+	}
+	
 	function initializeScene() {
 		sceneGraph = new Scenegraph();
 		sceneGraph.impactPoint = new Vec3( 0.0, 1.0, 0.0 );
@@ -112,16 +133,36 @@ function PlanetDemo()
 
 		sceneGraph.cameras[sceneGraph.MAIN_CAMERA] = new cNode("Camera", 35, 1, 1, 10000);
 		sceneGraph.cameras[sceneGraph.MAIN_CAMERA].transformation = function (mat) {
+			/*
 			var pitch = Mat4.rotate(input.mY, new Vec3(1, 0, 0));
 			var yaw = Mat4.rotate(input.mX, new Vec3(0, 1, 0));
 			var rot = yaw.multiply(pitch);
 			var rotY = Mat4.rotate(input.lon, new Vec3(0, 1, 0));
 			var rotX = Mat4.rotate(input.lat, new Vec3(1, 0, 0));
-
-			rot = rotY.multiply(rotX.multiply(Mat4.translate(0, 0, 12.756 / 2 + input.dis).multiply(rot)));
-			this.ownMat = Mat4.translate(mat[12], mat[13], mat[14]).multiply(rot);
+			*/
+			
+			let vectorX = new Vec3( this.localMatrix[0], this.localMatrix[1], this.localMatrix[2] ).norm();
+			let vectorY = new Vec3( this.localMatrix[4], this.localMatrix[5], this.localMatrix[6] ).norm();
+			let vectorZ = new Vec3( this.localMatrix[8], this.localMatrix[9], this.localMatrix[10] ).norm();
+			
+			let vector = vectorX.scalar( -input.moveX ).add( vectorY.scalar( input.moveY ) );
+			let magnitude = vector.abs();
+			if( magnitude )
+			{
+				let axis = vector.norm().cross( vectorZ );
+				this.localMatrix = Mat4.rotate( 90.0*magnitude ,axis ).multiply( this.localMatrix );
+			}
+			
+			vectorZ = new Vec3( this.localMatrix[8], this.localMatrix[9], this.localMatrix[10] ).norm().scalar( -input.dis )
+			this.localMatrix = Mat4.translate( vectorZ[0], vectorZ[1], vectorZ[2] ).multiply( this.localMatrix );
+			
+			this.ownMat = Mat4.translate( mat[12], mat[13], mat[14] ).multiply( this.localMatrix );
 			this.childMat = this.ownMat;
-
+			
+			input.moveX = 0;
+			input.moveY = 0;
+			input.dis = 0;
+			
 			return this.childMat;
 		};
 
@@ -187,13 +228,24 @@ function PlanetDemo()
 			var vec = false;
 			var time = sceneGraph.timer.gameTime;
 
-			if (input.fire && !this.click || input.fire_mode) {
+			if( input.fire && !this.click || input.fire_mode )
+			{
 				vec = collision(this.parent);
 
-				if (input.fire && vec) {
-					sceneGraph.impactPoint = vec;
-					sceneGraph.impactProgress = 0;
-					this.click = true;
+				if ( input.fire )
+				{
+					if( vec )
+					{
+						sceneGraph.impactPoint = vec;
+						sceneGraph.impactProgress = 0;
+						sceneGraph.timer.multi = 1;
+						this.click = true;
+						input.fire_mode = false;
+					}
+					else
+					{
+						input.fire = false;
+					}
 				}
 			}
 
@@ -201,14 +253,19 @@ function PlanetDemo()
 				vec = new Vec3(0, 0, 0);
 			}
 
-			if (this.click) {
+			if ( this.click ) {
 				if (!input.fire) {
-					sceneGraph.impactProgress = 0;
 					this.click = false;
 				}
 				else {
-					sceneGraph.impactProgress += sceneGraph.timer.getDelta() / 1000 * 0.02;
+					sceneGraph.impactProgress += ( 1.0 + 10.0 * sceneGraph.impactProgress ) * sceneGraph.timer.getDelta() * 0.00002;
 					sceneGraph.impactProgress = Math.min( Math.max( sceneGraph.impactProgress, 0.0 ), 1.0 );
+					if( sceneGraph.impactProgress === 1.0 )
+					{
+						this.click = false;
+						input.fire = false;
+						sceneGraph.timer.multi = sceneGraph.oldTimeMulti;
+					}						
 				}
 			}
 
@@ -297,8 +354,6 @@ function PlanetDemo()
 		gl.bindTexture( gl.TEXTURE_2D, gl.beautyPass );
 		
 		gl.texImage2D( gl.TEXTURE_2D, 0, gl.RGBA, gl.bufferWidth, gl.bufferHeight, 0, gl.RGBA, gl.UNSIGNED_BYTE, null );
-		
-		gl.generateMipmap( gl.TEXTURE_2D );
 		
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR );
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR );
@@ -624,6 +679,10 @@ function PlanetDemo()
 				collPoint = p0.add(p1.scalar(t2));
 			}
 		}
+		if( Number.isNaN( collPoint[0] ) || Number.isNaN( collPoint[1] ) || Number.isNaN( collPoint[2] ) )
+		{
+			return false;
+		}
 		return collPoint;
 	}
 
@@ -770,52 +829,37 @@ function PlanetDemo()
 
 		switch (event.keyCode) {
 			case 38:	// arrow up
-				input.lat -= 5;
-				input.lat %= 360;
+				input.moveY -= 0.05;
 				event.preventDefault();
 				break;
 
 			case 40:	// arrow down
-				input.lat += 5;
-				input.lat %= 360;
+				input.moveY += 0.05;
 				event.preventDefault();
 				break;
 
 			case 37:	// arrow left
-				input.lon -= 5;
-				input.lon %= 360;
+				input.moveX -= 0.05;
 				event.preventDefault();
 				break;
 
 			case 39:	// arrow right
-				input.lon += 5;
-				input.lon %= 360;
+				input.moveX += 0.05;
 				event.preventDefault();
 				break;
 
 			case 33:	// img up
-				input.dis -= 1;
-				if (input.dis < 5) input.dis = 5;
+				input.dis += 1;
 				event.preventDefault();
 				break;
 
 			case 34:	// img down
-				input.dis += 1;
-				//if( input.dis > 35 ) input.dis = 35;
+				input.dis -= 1;
 				event.preventDefault();
 				break;
 
 			case 32:	//Space 
-				input.dis = 18;
-				input.lon = 180;
-				input.lat = 0;
-				input.mX = 0;
-				input.mY = 0;
-
-				input.fire = false;
-				input.down = false;
-				input.fire_mode = false;
-				sceneGraph.timer.multi = 10000;
+				resetCamera()
 
 				event.preventDefault();
 				break;
@@ -832,24 +876,44 @@ function PlanetDemo()
 				break;
 
 			case 88:
-				if (!input.fire) {
+				if ( !sceneGraph.impactProgress )
+				{
 					input.fire_mode = !input.fire_mode
 					if (input.fire_mode) {
+						sceneGraph.oldTimeMulti = sceneGraph.timer.multi;
 						sceneGraph.timer.multi = 1;
+					}
+					else
+					{
+						sceneGraph.timer.multi = sceneGraph.oldTimeMulti;
 					}
 				}
 				event.preventDefault();
 				break;
 		}
 	}
+	
+	function resetCamera()
+	{
+		input.dis = -24;
+		input.moveX = 90;
+		input.moveY = 0;
+		input.mX = 0;
+		input.mY = 0;
 
+		input.fire = false;
+		input.down = false;
+		input.fire_mode = false;
+		
+		sceneGraph.cameras[sceneGraph.MAIN_CAMERA].localMatrix = new Mat4();
+		sceneGraph.timer.multi = 10000;
+		sceneGraph.impactProgress = 0.0;
+	}
+	
 	function MouseMove(event) {
 		if (input.down) {
-			input.lat += 0.5 * (input.old_clientY - event.clientY);
-			input.lat %= 360;
-
-			input.lon += 0.5 * (input.old_clientX - event.clientX);
-			input.lon %= 360;
+			input.moveY += ( input.old_clientY - event.clientY )/canvas.height;
+			input.moveX += ( input.old_clientX - event.clientX )/canvas.width;
 		}
 		input.old_clientX = event.clientX;
 		input.old_clientY = event.clientY;
@@ -858,7 +922,6 @@ function PlanetDemo()
 	function MouseDown(event) {
 		if (input.fire_mode) {
 			input.fire = true;
-			input.fire_mode = false;
 		}
 		else {
 			input.down = true;
@@ -884,33 +947,98 @@ function PlanetDemo()
 			object.innerHTML = text;
 		}
 	}
+	
+	function onTouchStart( event )
+	{
+		event.preventDefault();
+		if( !canvas.ontouchmove )
+		{
+			canvas.ontouchmove = onTouchMove;
+		}
+		input.old_clientX = 0;
+		input.old_clientY = 0;
+		input.touchDistance = 0;
+		
+		if( event.touches.length == 1 )
+		{
+			if( input.doubleTapStart )
+			{
+				let delta = performance.now() - input.doubleTapStart;
+				delete input.doubleTapStart;
+				if( delta < 1000 )
+				{
+					if( sceneGraph.impactProgress )
+					{
+						resetCamera()
+					}
+					else
+					{
+						input.fire = true;
+						sceneGraph.oldTimeMulti = sceneGraph.timer.multi;
+						input.old_clientX = event.touches[0].clientX;
+						input.old_clientY = event.touches[0].clientY;
+					}
+				}
+			}
+			else
+			{
+				input.doubleTapStart = performance.now();
+			}
+		}
+		else
+		{
+			delete input.doubleTapStart;
+		}
+	}
+	
+	function onTouchEnd( event )
+	{
+	}
+	
+	function onTouchMove( event )
+	{
+		event.preventDefault();
+		
+		if( event.touches.length === 1 )
+		{
+			if( input.old_clientX > 0 || input.old_clientY > 0 )
+			{
+				input.moveY += ( input.old_clientY - event.touches[0].clientY )/canvas.height;
+				input.moveX += ( input.old_clientX - event.touches[0].clientX )/canvas.width;
+			}
+			input.old_clientX = event.touches[0].clientX;
+			input.old_clientY = event.touches[0].clientY;	
+		}
+		else if( event.touches.length > 1 )
+		{
+			let distance = new Vec2( event.touches[0].clientX, event.touches[0].clientY ).sub( new Vec2( event.touches[1].clientX, event.touches[1].clientY ) ).abs();
+			if( input.touchDistance > 0 )
+			{
+				input.dis -= ( input.touchDistance - distance ) / 30.0;
+			}
+			input.touchDistance = distance;
+		}
+	}
 
 	function initializeInput() {
 		input = [];
-		input.ctrl = 1;
-		input.lon = 180;
-		input.lat = 0;
-		input.dis = 18;
-		input.mY = 0;
-		input.mX = 0;
-
-		input.fire_mode = false;
-		input.down = false;
-		input.fire = false;
-
+		resetCamera();
 		document.onkeydown = KeyPress;
 		canvas.onmousemove = MouseMove;
 		canvas.onmousedown = MouseDown;
 		canvas.onmouseup = MouseUp;
+		
+		//canvas.ontouchmove   = onTouchMove;
+		//canvas.ontouchend    = onTouchEnd;
+		//canvas.ontouchcancel = onTouchCancel;
+		canvas.ontouchstart  = onTouchStart;
 	}
 
 	function render() {
-		initializeInput();
 		initializeBuffers();
 		initializePipelines();
 		initializeScene();
-
-		sceneGraph.timer.multi = 10000;
+		initializeInput();
 
 		gl.timer = new Date().getTime();
 		gl.fps = 0;
@@ -921,6 +1049,17 @@ function PlanetDemo()
 		if( legend && legend.style )
 		{
 			legend.style.display = '';
+			
+			if( isTouchDevice() )
+			{
+				let table = legend.children[0].children[0]
+				
+				table.innerHTML = 
+					'<tr><td align="left">Legend</td><td align="left"></td></tr>' +
+				    '<tr><td align="left">Swipe:</td><td align="left">Move camera</td></tr>' +
+					'<tr><td align="left">Pinch:</td><td align="left">Zoom camera</td></tr>' +
+					'<tr><td align="left">Double tap:</td><td align="left">Transformation/Reset</td></tr>';
+			}
 		}
 		tick();
 	}

@@ -124,6 +124,8 @@
 		
 		this.height = 2*this.near*Math.tan( this.angleY*Math.PI/360.0 );
 		this.width = this.height*this.ratio;
+		
+		this.localMatrix = new Mat4();
 	}
 	
 	cNode.prototype = new Node();
